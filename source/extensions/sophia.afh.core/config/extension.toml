@@ -28,8 +28,8 @@ repository = "https://github.com/NVIDIA-Omniverse/kit-app-template"  # URL of th
 [settings]
 
 
-[[python.module]]  # Main python module this extension provides, it will be publicly available as "import sophia.agh.core"
-name = "sophia.agh.core"
+[[python.module]]  # Main python module this extension provides, it will be publicly available as "import sophia.afh.core"
+name = "sophia.afh.core"
 
 
 [documentation]

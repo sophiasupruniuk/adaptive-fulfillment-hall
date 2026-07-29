@@ -13,10 +13,10 @@ import omni.ui as ui
 
 
 # Functions and vars are available to other extensions as usual in python:
-# `sophia.agh.core.some_public_function(x)`
+# `sophia.afh.core.some_public_function(x)`
 def some_public_function(x: int):
     """This is a public function that can be called from other extensions."""
-    print(f"[sophia.agh.core] some_public_function was called with {x}")
+    print(f"[sophia.afh.core] some_public_function was called with {x}")
     return x ** x
 
 
@@ -31,7 +31,7 @@ class MyExtension(omni.ext.IExt):
     # located on the filesystem.
     def on_startup(self, _ext_id):
         """This is called every time the extension is activated."""
-        print("[sophia.agh.core] Extension startup")
+        print("[sophia.afh.core] Extension startup")
 
         self._count = 0
         self._window = ui.Window(
@@ -58,4 +58,4 @@ class MyExtension(omni.ext.IExt):
     def on_shutdown(self):
         """This is called every time the extension is deactivated. It is used
         to clean up the extension state."""
-        print("[sophia.agh.core] Extension shutdown")
+        print("[sophia.afh.core] Extension shutdown")
