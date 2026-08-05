@@ -12,6 +12,9 @@ import omni.ext
 import omni.ui as ui
 from .simulation import SimulationController
 
+title = "Spawn Parcels"
+description="Spawns parcels at a specified rate per hour."
+
 
 # Any class derived from `omni.ext.IExt` in the top level module (defined in
 # `python.modules` of `extension.toml`) will be instantiated when the extension
@@ -26,9 +29,11 @@ class SimulationExtension(omni.ext.IExt):
         """This is called every time the extension is activated."""
         print("[sophia.afh.core] Extension startup")
         self._simulation_controller = SimulationController()
+        self._simulation_controller.start()
 
     def on_shutdown(self):
         """This is called every time the extension is deactivated. It is used
         to clean up the extension state."""
         print("[sophia.afh.core] Extension shutdown")
+        self._simulation_controller.stop()
         self._simulation_controller = None
