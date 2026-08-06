@@ -1,5 +1,6 @@
 import omni.kit.app
 import omni.usd
+from pxr import UsdGeom, Gf
 
 class SimulationController:
     def __init__(self):
@@ -26,4 +27,7 @@ class SimulationController:
             self._parcel_count += 1
             stage = omni.usd.get_context().get_stage()
             parcel = stage.DefinePrim(f"/World/Parcel/Parcel_{self._parcel_count:02d}", "Xform")
+            payload = parcel.GetPayloads()
+            payload.AddPayload(assetPath="../Assets/parcels/parcel_small.usd")
+            UsdGeom.Xformable(parcel).AddTranslateOp().Set(Gf.Vec3d(22.7, 1.0, 2.0))
             self._time_since_spawn = 0.0
