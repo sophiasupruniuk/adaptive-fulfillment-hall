@@ -1,6 +1,7 @@
 import omni.kit.app
 import omni.usd
 from pxr import UsdGeom, Gf, PhysxSchema, UsdPhysics
+from .measurement import EventLog
 
 class SimulationController:
     def __init__(self):
@@ -10,8 +11,13 @@ class SimulationController:
         self._parcel_count = 0
         self._trigger_path = "/World/Layout/Conveyor/DiverterTrigger"
         self._joint_path = "/World/Layout/Conveyor/Diverter/divider_arm/PusherJoint"
+        self._run_time = 0.0
+        self._event_log = EventLog()
+        self._fallen = set()
 
     def start(self):
+        self._run_time = 0.0
+        self._event_log.reset()
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._subscription = stream.create_subscription_to_pop(self._on_update, name="Parcel Spawner")
 
@@ -23,6 +29,7 @@ class SimulationController:
     def _on_update(self, event):
         stage = omni.usd.get_context().get_stage()
         dt = event.payload["dt"]
+        self._run_time += dt
         joint_prim = stage.GetPrimAtPath(self._joint_path)
         drive = UsdPhysics.DriveAPI(joint_prim, "linear")
         self._time_since_spawn += dt
@@ -43,3 +50,10 @@ class SimulationController:
             drive.CreateTargetPositionAttr().Set(0.0)
         else:
             drive.CreateTargetPositionAttr().Set(-0.6)
+        get_parcel_path = stage.GetPrimAtPath("/World/Parcel")
+        parcel_children = get_parcel_path.GetChildren()
+        for parcel in parcel_children:
+            parcel_transform = parcel.GetAttribute("xformOp:translate").Get()
+            if parcel_transform[2] < 0.3 and parcel.GetPath() not in self._fallen:
+                self._fallen.add(parcel.GetPath())
+                self._event_log.record("fall", self._run_time, parcel_transform)
