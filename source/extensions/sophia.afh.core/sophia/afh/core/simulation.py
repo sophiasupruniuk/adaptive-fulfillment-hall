@@ -14,6 +14,7 @@ class SimulationController:
         self._run_time = 0.0
         self._event_log = EventLog()
         self._fallen = set()
+        self._parcel_state = {}
 
     def start(self):
         self._run_time = 0.0
@@ -57,3 +58,13 @@ class SimulationController:
             if parcel_transform[2] < 0.3 and parcel.GetPath() not in self._fallen:
                 self._fallen.add(parcel.GetPath())
                 self._event_log.record("fall", self._run_time, parcel_transform)
+            if parcel.GetPath() not in self._parcel_state:
+                self._parcel_state[parcel.GetPath()] = {"last_pos": parcel_transform, "still_time": 0.0}
+            else:
+                last = self._parcel_state[parcel.GetPath()]["last_pos"]
+                moved = (parcel_transform - last).GetLength()
+                if moved < 0.01:
+                    self._parcel_state[parcel.GetPath()]["still_time"] += dt
+                else:
+                    self._parcel_state[parcel.GetPath()]["still_time"] = 0.0
+                self._parcel_state[parcel.GetPath()]["last_pos"] = parcel_transform
