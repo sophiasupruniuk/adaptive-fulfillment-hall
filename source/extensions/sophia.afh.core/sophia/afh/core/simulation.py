@@ -10,10 +10,6 @@ class SimulationController:
         self._parcel_count = 0
         self._trigger_path = "/World/Layout/Conveyor/DiverterTrigger"
         self._joint_path = "/World/Layout/Conveyor/Diverter/divider_arm/PusherJoint"
-        self._arm_extended = False
-        self._time_arm_extended = 0.0
-        self._arm_extend_duration = 1.0
-
 
     def start(self):
         stream = omni.kit.app.get_app().get_update_event_stream()
@@ -42,7 +38,8 @@ class SimulationController:
         state = PhysxSchema.PhysxTriggerStateAPI(trigger_prim)
         rel = state.GetTriggeredCollisionsRel()
         targets = rel.GetTargets() if rel else []
-        if targets:
+        parcels = [t for t in targets if "/World/Parcel/" in str(t)]
+        if parcels:
             drive.CreateTargetPositionAttr().Set(0.0)
         else:
             drive.CreateTargetPositionAttr().Set(-0.6)
