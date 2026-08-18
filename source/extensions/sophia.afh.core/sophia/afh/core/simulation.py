@@ -15,6 +15,7 @@ class SimulationController:
         self._event_log = EventLog()
         self._fallen = set()
         self._parcel_state = {}
+        self._jammed = set()
 
     def start(self):
         self._run_time = 0.0
@@ -58,6 +59,7 @@ class SimulationController:
             if parcel_transform[2] < 0.3 and parcel.GetPath() not in self._fallen:
                 self._fallen.add(parcel.GetPath())
                 self._event_log.record("fall", self._run_time, parcel_transform)
+
             if parcel.GetPath() not in self._parcel_state:
                 self._parcel_state[parcel.GetPath()] = {"last_pos": parcel_transform, "still_time": 0.0}
             else:
@@ -68,3 +70,21 @@ class SimulationController:
                 else:
                     self._parcel_state[parcel.GetPath()]["still_time"] = 0.0
                 self._parcel_state[parcel.GetPath()]["last_pos"] = parcel_transform
+
+        stalled = [path for path, s in self._parcel_state.items() if s["still_time"] > 3.0]
+        for a in stalled:
+            neighbors = 0
+            for b in stalled:
+                if a == b:
+                    continue
+                pos_a = self._parcel_state[a]["last_pos"]
+                pos_b = self._parcel_state[b]["last_pos"]
+                distance = (pos_a - pos_b).GetLength()
+                if distance < 0.5:
+                    neighbors += 1
+
+                if neighbors >= 2:
+                    if a not in self._jammed:
+                        self._jammed.add(a)
+                        self._event_log.record("jam", self._run_time, self._parcel_state[a]["last_pos"])
+                        print("JAM", self._run_time, a)
