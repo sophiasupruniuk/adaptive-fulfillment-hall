@@ -19,7 +19,7 @@ class SimulationExtension(omni.ext.IExt):
         """This is called every time the extension is activated."""
         print("[sophia.afh.core] Extension startup")
         self._simulation_controller = SimulationController()
-        self._control_panel = ControlPanel()
+        self._control_panel = ControlPanel(self._simulation_controller)
 
     def on_shutdown(self):
         """This is called every time the extension is deactivated. It is used
