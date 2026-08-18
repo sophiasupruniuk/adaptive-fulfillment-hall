@@ -83,8 +83,8 @@ class SimulationController:
                 if distance < 0.5:
                     neighbors += 1
 
-                if neighbors >= 2:
-                    if a not in self._jammed:
-                        self._jammed.add(a)
-                        self._event_log.record("jam", self._run_time, self._parcel_state[a]["last_pos"])
-                        print("JAM", self._run_time, a)
+            if neighbors >= 2:
+                if a not in self._jammed:
+                    self._jammed.add(a)
+                    self._event_log.record("jam", self._run_time, self._parcel_state[a]["last_pos"])
+                    print("JAM", self._run_time, a)
