@@ -17,10 +17,11 @@ class SimulationController:
         self._parcel_state = {}
         self._jammed = set()
 
-    def start(self, spawn_rate_per_hour):
+    def start(self, spawn_rate_per_hour, speed):
         self._run_time = 0.0
         self._event_log.reset()
         self._spawn_rate_per_hour = spawn_rate_per_hour
+        self._apply_conveyor_speed(speed)
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._subscription = stream.create_subscription_to_pop(self._on_update, name="Parcel Spawner")
 
@@ -37,6 +38,7 @@ class SimulationController:
         drive = UsdPhysics.DriveAPI(joint_prim, "linear")
         self._time_since_spawn += dt
         spawn_interval = 3600.0 / self._spawn_rate_per_hour
+
         if self._time_since_spawn >= spawn_interval:
             self._parcel_count += 1
             parcel = stage.DefinePrim(f"/World/Parcel/Parcel_{self._parcel_count:02d}", "Xform")
@@ -49,12 +51,17 @@ class SimulationController:
         rel = state.GetTriggeredCollisionsRel()
         targets = rel.GetTargets() if rel else []
         parcels = [t for t in targets if "/World/Parcel/" in str(t)]
+
         if parcels:
             drive.CreateTargetPositionAttr().Set(0.0)
         else:
             drive.CreateTargetPositionAttr().Set(-0.6)
+
         get_parcel_path = stage.GetPrimAtPath("/World/Parcel")
+        if not get_parcel_path.IsValid():
+            return
         parcel_children = get_parcel_path.GetChildren()
+
         for parcel in parcel_children:
             parcel_transform = parcel.GetAttribute("xformOp:translate").Get()
             if parcel_transform[2] < 0.3 and parcel.GetPath() not in self._fallen:
@@ -89,3 +96,11 @@ class SimulationController:
                     self._jammed.add(a)
                     self._event_log.record("jam", self._run_time, self._parcel_state[a]["last_pos"])
                     print("JAM", self._run_time, a)
+
+    def _apply_conveyor_speed(self, speed):
+        stage = omni.usd.get_context().get_stage()
+        conveyor_prim = stage.GetPrimAtPath("/World/Layout/Conveyor")
+        for child in conveyor_prim.GetChildren():
+            if child.HasAPI(PhysxSchema.PhysxSurfaceVelocityAPI):
+                velocity_api = PhysxSchema.PhysxSurfaceVelocityAPI(child)
+                velocity_api.CreateSurfaceVelocityAttr().Set(Gf.Vec3f(0.0, speed, 0.0))
