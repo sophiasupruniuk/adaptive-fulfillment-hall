@@ -10,7 +10,8 @@ class ControlPanel:
             speed = self._speed_slider.model.get_value_as_float()
             aisle_width = self._aisle_width_option.model.get_item_value_model().get_value_as_int()
             automation_level = self._automation_level_option.model.get_item_value_model().get_value_as_int()
-            self._controller.start(rate, speed, aisle_width, automation_level)
+            seed = self._seed_field.model.get_value_as_int()
+            self._controller.start(rate, speed, aisle_width, automation_level, seed)
 
         def on_stop():
             self._controller.stop()
@@ -28,6 +29,9 @@ class ControlPanel:
                 self._aisle_width_option = ui.ComboBox(0, "Narrow", "Wide")
                 ui.Label("Automation Level:")
                 self._automation_level_option = ui.ComboBox(0, "Manual", "Conveyor", "ConveyorPlusDiverter")
+                ui.Label("Random Seed:")
+                self._seed_field = ui.IntField()
+                self._seed_field.model.set_value(22)
                 ui.Button("Run", clicked_fn=on_run)
                 ui.Button("Stop", clicked_fn=on_stop)
 

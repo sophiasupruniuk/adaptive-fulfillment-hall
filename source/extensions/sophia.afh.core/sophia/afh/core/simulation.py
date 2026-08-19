@@ -1,5 +1,6 @@
 import omni.kit.app
 import omni.usd
+import random
 from pxr import UsdGeom, Gf, PhysxSchema, UsdPhysics
 from .measurement import EventLog
 
@@ -16,14 +17,16 @@ class SimulationController:
         self._fallen = set()
         self._parcel_state = {}
         self._jammed = set()
+        self._parcel_assets = ["../Assets/parcels/parcel_small.usd", "../Assets/parcels/parcel_medium.usd", "../Assets/parcels/parcel_large.usd"]
 
-    def start(self, spawn_rate_per_hour, speed, aisle_width, automation_level):
+    def start(self, spawn_rate_per_hour, speed, aisle_width, automation_level, seed):
         self._run_time = 0.0
         self._event_log.reset()
         self._spawn_rate_per_hour = spawn_rate_per_hour
         self._apply_conveyor_speed(speed)
         self._apply_aisle_width(aisle_width)
         self._apply_automation_level(automation_level)
+        random.seed(seed)
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._subscription = stream.create_subscription_to_pop(self._on_update, name="Parcel Spawner")
 
@@ -45,7 +48,7 @@ class SimulationController:
             self._parcel_count += 1
             parcel = stage.DefinePrim(f"/World/Parcel/Parcel_{self._parcel_count:02d}", "Xform")
             payload = parcel.GetPayloads()
-            payload.AddPayload(assetPath="../Assets/parcels/parcel_small.usd")
+            payload.AddPayload(random.choice(self._parcel_assets))
             UsdGeom.Xformable(parcel).AddTranslateOp().Set(Gf.Vec3d(22.7, 1.0, 2.0))
             self._time_since_spawn = 0.0
         trigger_prim = stage.GetPrimAtPath(self._trigger_path)
