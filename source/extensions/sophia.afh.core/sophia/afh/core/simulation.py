@@ -17,9 +17,10 @@ class SimulationController:
         self._parcel_state = {}
         self._jammed = set()
 
-    def start(self):
+    def start(self, spawn_rate_per_hour):
         self._run_time = 0.0
         self._event_log.reset()
+        self._spawn_rate_per_hour = spawn_rate_per_hour
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._subscription = stream.create_subscription_to_pop(self._on_update, name="Parcel Spawner")
 
