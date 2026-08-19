@@ -17,11 +17,13 @@ class SimulationController:
         self._parcel_state = {}
         self._jammed = set()
 
-    def start(self, spawn_rate_per_hour, speed):
+    def start(self, spawn_rate_per_hour, speed, aisle_width, automation_level):
         self._run_time = 0.0
         self._event_log.reset()
         self._spawn_rate_per_hour = spawn_rate_per_hour
         self._apply_conveyor_speed(speed)
+        self._apply_aisle_width(aisle_width)
+        self._apply_automation_level(automation_level)
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._subscription = stream.create_subscription_to_pop(self._on_update, name="Parcel Spawner")
 
@@ -104,3 +106,15 @@ class SimulationController:
             if child.HasAPI(PhysxSchema.PhysxSurfaceVelocityAPI):
                 velocity_api = PhysxSchema.PhysxSurfaceVelocityAPI(child)
                 velocity_api.CreateSurfaceVelocityAttr().Set(Gf.Vec3f(0.0, speed, 0.0))
+
+    def _apply_aisle_width(self, aisle_width):
+        stage = omni.usd.get_context().get_stage()
+        aisle_prim = stage.GetPrimAtPath("/World/Layout")
+        names = ["Narrow", "Wide"]
+        aisle_prim.GetVariantSet("AisleWidth").SetVariantSelection(names[aisle_width])
+
+    def _apply_automation_level(self, automation_level):
+        stage = omni.usd.get_context().get_stage()
+        automation_prim = stage.GetPrimAtPath("/World/Layout")
+        names = ["Manual", "Conveyor", "ConveyorPlusDiverter"]
+        automation_prim.GetVariantSet("AutomationLevel").SetVariantSelection(names[automation_level])
