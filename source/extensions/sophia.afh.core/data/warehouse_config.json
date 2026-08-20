@@ -57,13 +57,6 @@
       "end_y_m": 5.0,
       "direction": "-y",
       "powered": true
-    },
-
-    "runout": {
-      "centreline_y_m": 41.0,
-      "start_x_m": 9.5,
-      "end_x_m": 7.5,
-      "powered": false
     }
   },
 
@@ -75,10 +68,10 @@
   },
 
   "door": {
-    "wall": "min_y",
+    "wall": "max_y",
     "start_x_m": 7.0,
     "end_x_m": 12.0,
-    "position_y_m": 1.0
+    "position_y_m": 41.0
   },
 
   "spawn": {
