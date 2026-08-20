@@ -13,7 +13,21 @@ def generate_racks(stage, config, aisle_width_m, row_count):
     interior_min_y_m = config["hall"]["interior_min_y_m"]
     bay_depth_m = config["rack"]["bay_depth_m"]
     storage_start_x_m = config["bands"]["storage_start_x_m"]
+    bay_width_m = config["rack"]["bay_width_m"]
+    storage_end_x_m = config["bands"]["storage_end_x_m"]
+    bays_per_row = int((storage_end_x_m - storage_start_x_m) / bay_width_m)
+    row_x = storage_end_x_m - bays_per_row * bay_width_m
+
+    stage.RemovePrim("/World/Layout/Racks")
+
     for i in range(row_count):
-        y_position = interior_min_y_m + i * (bay_depth_m + aisle_width_m)
-        rack_prim = stage.DefinePrim(f"/World/Layout/Racks/Row_{i:02d}", "Xform")
-        UsdGeom.Xformable(rack_prim).AddTranslateOp().Set(Gf.Vec3d(storage_start_x_m, y_position, 0))
+        y_position = interior_min_y_m + aisle_width_m + i * (bay_depth_m + aisle_width_m)
+        row_prim = stage.DefinePrim(f"/World/Layout/Racks/Row_{i:02d}", "Xform")
+        UsdGeom.Xformable(row_prim).AddTranslateOp().Set(Gf.Vec3d(row_x, y_position, 0))
+
+        for j in range(bays_per_row):
+            rack_prim = stage.DefinePrim(f"/World/Layout/Racks/Row_{i:02d}/Bay_{j:02d}", "Xform")
+            payloads = rack_prim.GetPayloads()
+            payloads.AddPayload(assetPath="../Assets/rack_bay.usd")
+            UsdGeom.Xformable(rack_prim).AddTranslateOp().Set(Gf.Vec3d(j * bay_width_m, 0, 0))
+            UsdGeom.Xformable(rack_prim).AddRotateZOp().Set(-90)
