@@ -1,0 +1,87 @@
+{
+  "hall": {
+    "outer_width_m": 27.0,
+    "outer_length_m": 42.0,
+    "wall_thickness_m": 1.0,
+    "interior_min_x_m": 1.0,
+    "interior_max_x_m": 26.0,
+    "interior_min_y_m": 1.0,
+    "interior_max_y_m": 41.0,
+    "height_m": 8.0
+  },
+
+  "bands": {
+    "sortation_start_x_m": 1.0,
+    "sortation_end_x_m": 12.0,
+    "storage_start_x_m": 12.0,
+    "storage_end_x_m": 26.0
+  },
+
+  "rack": {
+    "bay_width_m": 2.7,
+    "bay_depth_m": 1.2,
+    "bay_height_m": 6.0,
+    "levels_per_bay": 3
+  },
+
+  "aisle": {
+    "narrow_m": 1.8,
+    "wide_m": 3.2,
+    "min_clearance_m": 1.8
+  },
+
+  "conveyor": {
+    "belt_height_m": 0.8,
+    "belt_width_m": 0.75,
+    "segment_length_m": 2.0,
+
+    "inbound": {
+      "centreline_x_m": 9.5,
+      "start_y_m": 5.0,
+      "end_y_m": 41.0,
+      "direction": "+y",
+      "powered": true
+    },
+
+    "cross": {
+      "centreline_y_m": 23.0,
+      "start_x_m": 9.5,
+      "end_x_m": 7.5,
+      "direction": "-x",
+      "powered": true
+    },
+
+    "outbound": {
+      "centreline_x_m": 7.5,
+      "start_y_m": 41.0,
+      "end_y_m": 5.0,
+      "direction": "-y",
+      "powered": true
+    },
+
+    "runout": {
+      "centreline_y_m": 41.0,
+      "start_x_m": 9.5,
+      "end_x_m": 7.5,
+      "powered": false
+    }
+  },
+
+  "diverter": {
+    "position_x_m": 10.5,
+    "position_y_m": 23.0,
+    "push_direction": "-x",
+    "arm_extend_time_s": 0.25
+  },
+
+  "door": {
+    "wall": "min_y",
+    "start_x_m": 7.0,
+    "end_x_m": 12.0,
+    "position_y_m": 1.0
+  },
+
+  "spawn": {
+    "drop_height_m": 1.2
+  }
+}
