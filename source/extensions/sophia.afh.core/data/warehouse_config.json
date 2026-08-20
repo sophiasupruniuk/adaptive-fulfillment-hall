@@ -37,17 +37,17 @@
 
     "inbound": {
       "centreline_x_m": 9.5,
-      "start_y_m": 5.0,
-      "end_y_m": 41.0,
+      "start_y_m": 41.0,
+      "end_y_m": 5.0,
       "direction": "+y",
       "powered": true
     },
 
     "cross": {
       "centreline_y_m": 23.0,
-      "start_x_m": 9.5,
-      "end_x_m": 7.5,
-      "direction": "-x",
+      "start_x_m": 7.5,
+      "end_x_m": 9.5,
+      "direction": "+x",
       "powered": true
     },
 
@@ -68,9 +68,9 @@
   },
 
   "diverter": {
-    "position_x_m": 10.5,
+    "position_x_m": 6.5,
     "position_y_m": 23.0,
-    "push_direction": "-x",
+    "push_direction": "+x",
     "arm_extend_time_s": 0.25
   },
 
