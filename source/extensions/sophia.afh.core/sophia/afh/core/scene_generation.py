@@ -50,3 +50,19 @@ def generate_conveyor(stage, config, run_name):
         payloads = conveyor_prim.GetPayloads()
         payloads.AddPayload(assetPath="../Assets/conveyor_modules/conveyor_module_straight.usd")
         UsdGeom.Xformable(conveyor_prim).AddTranslateOp().Set(Gf.Vec3d(x_position, y_position, 0))
+
+def generate_cross_conveyor(stage, config, run_name):
+    centreline_y_m = config["conveyor"]["cross"]["centreline_y_m"]
+    start_x_m = config["conveyor"]["cross"]["start_x_m"]
+    end_x_m = config["conveyor"]["cross"]["end_x_m"]
+    belt_width_m = config["conveyor"]["belt_width_m"]
+    y_position = centreline_y_m - belt_width_m / 2
+    x_position = min(start_x_m, end_x_m)
+
+    stage.RemovePrim(f"/World/Layout/Conveyor/{run_name}/cross_segment")
+
+    cross_conveyor_prim = stage.DefinePrim(f"/World/Layout/Conveyor/{run_name}/cross_segment", "Xform")
+    payloads = cross_conveyor_prim.GetPayloads()
+    payloads.AddPayload(assetPath = "../Assets/conveyor_modules/conveyor_module_straight.usd")
+    UsdGeom.Xformable(cross_conveyor_prim).AddTranslateOp().Set(Gf.Vec3d(x_position, y_position, 0))
+    UsdGeom.Xformable(cross_conveyor_prim).AddRotateZOp().Set(-90)

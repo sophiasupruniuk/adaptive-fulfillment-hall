@@ -119,6 +119,7 @@ class SimulationController:
             for segment in run_prim.GetChildren():
                 velocity_api = PhysxSchema.PhysxSurfaceVelocityAPI(segment)
                 velocity_api.CreateSurfaceVelocityAttr().Set(velocity)
+                velocity_api.CreateSurfaceVelocityLocalSpaceAttr().Set(False)
 
     def _apply_aisle_width(self, aisle_width):
         stage = omni.usd.get_context().get_stage()
