@@ -3,6 +3,7 @@ import omni.usd
 import random
 from pxr import UsdGeom, Gf, PhysxSchema, UsdPhysics
 from .measurement import EventLog
+from .scene_generation import load_config
 
 class SimulationController:
     def __init__(self):
@@ -103,12 +104,21 @@ class SimulationController:
                     print("JAM", self._run_time, a)
 
     def _apply_conveyor_speed(self, speed):
+        print("APPLY SPEED CALLED, speed =", speed)
         stage = omni.usd.get_context().get_stage()
-        conveyor_prim = stage.GetPrimAtPath("/World/Layout/Conveyor")
-        for child in conveyor_prim.GetChildren():
-            if child.HasAPI(PhysxSchema.PhysxSurfaceVelocityAPI):
-                velocity_api = PhysxSchema.PhysxSurfaceVelocityAPI(child)
-                velocity_api.CreateSurfaceVelocityAttr().Set(Gf.Vec3f(0.0, speed, 0.0))
+        config = load_config()
+        unit = {"+y": (0, 1, 0), "-y": (0, -1, 0), "+x": (1, 0, 0), "-x": (-1, 0, 0)}
+        for run_name in ["inbound", "outbound", "cross"]:
+            direction = config ["conveyor"][run_name]["direction"]
+            u = unit[direction]
+            velocity = Gf.Vec3f(u[0] * speed, u[1] * speed, u[2] * speed)
+            run_prim = stage.GetPrimAtPath(f"/World/Layout/Conveyor/{run_name}")
+            print("   ", run_name, direction, run_prim.IsValid())
+            if not run_prim.IsValid():
+                continue
+            for segment in run_prim.GetChildren():
+                velocity_api = PhysxSchema.PhysxSurfaceVelocityAPI(segment)
+                velocity_api.CreateSurfaceVelocityAttr().Set(velocity)
 
     def _apply_aisle_width(self, aisle_width):
         stage = omni.usd.get_context().get_stage()

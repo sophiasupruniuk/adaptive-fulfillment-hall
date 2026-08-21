@@ -32,21 +32,21 @@ def generate_racks(stage, config, aisle_width_m, row_count):
             UsdGeom.Xformable(rack_prim).AddTranslateOp().Set(Gf.Vec3d(j * bay_width_m, 0, 0))
             UsdGeom.Xformable(rack_prim).AddRotateZOp().Set(-90)
 
-def generate_conveyor(stage, config):
-    start_y_m = config["conveyor"]["inbound"]["start_y_m"]
-    end_y_m = config["conveyor"]["inbound"]["end_y_m"]
+def generate_conveyor(stage, config, run_name):
+    start_y_m = config["conveyor"][run_name]["start_y_m"]
+    end_y_m = config["conveyor"][run_name]["end_y_m"]
     segment_length_m = config["conveyor"]["segment_length_m"]
-    centreline_x_m = config["conveyor"]["inbound"]["centreline_x_m"]
+    centreline_x_m = config["conveyor"][run_name]["centreline_x_m"]
     first_y = min(start_y_m, end_y_m)
     segments = int(abs((start_y_m - end_y_m) / segment_length_m))
     belt_width_m = config["conveyor"]["belt_width_m"]
     x_position = centreline_x_m - belt_width_m / 2 #so that the central x for the line is aligned with the center of the conveyor
 
-    stage.RemovePrim("/World/Layout/Conveyor")
+    stage.RemovePrim(f"/World/Layout/Conveyor/{run_name}")
 
     for i in range(segments):
         y_position = first_y + i * segment_length_m
-        conveyor_prim = stage.DefinePrim(f"/World/Layout/Conveyor/Inbound/Segment_{i:02d}", "Xform")
+        conveyor_prim = stage.DefinePrim(f"/World/Layout/Conveyor/{run_name}/Segment_{i:02d}", "Xform")
         payloads = conveyor_prim.GetPayloads()
         payloads.AddPayload(assetPath="../Assets/conveyor_modules/conveyor_module_straight.usd")
         UsdGeom.Xformable(conveyor_prim).AddTranslateOp().Set(Gf.Vec3d(x_position, y_position, 0))
