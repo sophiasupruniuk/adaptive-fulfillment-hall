@@ -11,7 +11,7 @@ class SimulationController:
         self._spawn_rate_per_hour = 600
         self._subscription = None
         self._parcel_count = 0
-        self._trigger_path = "/World/Layout/Conveyor/DiverterTrigger"
+        self._trigger_path = "/World/Layout/Conveyor/Diverter_Trigger"
         self._joint_path = "/World/Layout/Conveyor/Diverter/divider_arm/PusherJoint"
         self._run_time = 0.0
         self._event_log = EventLog()
@@ -24,9 +24,9 @@ class SimulationController:
         self._run_time = 0.0
         self._event_log.reset()
         self._spawn_rate_per_hour = spawn_rate_per_hour
-        self._apply_conveyor_speed(speed)
         self._apply_aisle_width(aisle_width)
         self._apply_automation_level(automation_level)
+        self._apply_conveyor_speed(speed)
         random.seed(seed)
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._subscription = stream.create_subscription_to_pop(self._on_update, name="Parcel Spawner")
@@ -34,14 +34,18 @@ class SimulationController:
     def stop(self):
         self._subscription = None
         stage = omni.usd.get_context().get_stage()
-        stage.RemovePrim("/World/Parcel")
+        if stage is None:
+            return
+        parcels = stage.GetPrimAtPath("/World/Parcel")
+        if parcels.IsValid():
+            stage.RemovePrim("/World/Parcel")
 
     def _on_update(self, event):
         stage = omni.usd.get_context().get_stage()
         dt = event.payload["dt"]
         self._run_time += dt
         joint_prim = stage.GetPrimAtPath(self._joint_path)
-        drive = UsdPhysics.DriveAPI(joint_prim, "linear")
+        drive = UsdPhysics.DriveAPI(joint_prim, "linear") if joint_prim.IsValid() else None
         self._time_since_spawn += dt
         spawn_interval = 3600.0 / self._spawn_rate_per_hour
 
@@ -50,18 +54,18 @@ class SimulationController:
             parcel = stage.DefinePrim(f"/World/Parcel/Parcel_{self._parcel_count:02d}", "Xform")
             payload = parcel.GetPayloads()
             payload.AddPayload(random.choice(self._parcel_assets))
-            UsdGeom.Xformable(parcel).AddTranslateOp().Set(Gf.Vec3d(22.7, 1.0, 2.0))
+            UsdGeom.Xformable(parcel).AddTranslateOp().Set(Gf.Vec3d(7.5, 25, 2.0))
             self._time_since_spawn = 0.0
         trigger_prim = stage.GetPrimAtPath(self._trigger_path)
-        state = PhysxSchema.PhysxTriggerStateAPI(trigger_prim)
-        rel = state.GetTriggeredCollisionsRel()
-        targets = rel.GetTargets() if rel else []
-        parcels = [t for t in targets if "/World/Parcel/" in str(t)]
+        parcels = []
+        if trigger_prim.IsValid():
+            state = PhysxSchema.PhysxTriggerStateAPI(trigger_prim)
+            rel = state.GetTriggeredCollisionsRel()
+            targets = rel.GetTargets() if rel else []
+            parcels = [t for t in targets if "/World/Parcel/" in str(t)]
 
-        if parcels:
-            drive.CreateTargetPositionAttr().Set(0.0)
-        else:
-            drive.CreateTargetPositionAttr().Set(-0.6)
+        if drive:
+            drive.CreateTargetPositionAttr().Set(0.0 if parcels else -0.6)
 
         get_parcel_path = stage.GetPrimAtPath("/World/Parcel")
         if not get_parcel_path.IsValid():
@@ -117,6 +121,8 @@ class SimulationController:
             if not run_prim.IsValid():
                 continue
             for segment in run_prim.GetChildren():
+                if not segment.IsValid():
+                    continue
                 velocity_api = PhysxSchema.PhysxSurfaceVelocityAPI(segment)
                 velocity_api.CreateSurfaceVelocityAttr().Set(velocity)
                 velocity_api.CreateSurfaceVelocityLocalSpaceAttr().Set(False)

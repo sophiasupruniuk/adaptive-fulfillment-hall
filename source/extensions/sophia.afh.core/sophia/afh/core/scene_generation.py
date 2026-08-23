@@ -1,6 +1,6 @@
 import json
 import os
-from pxr import UsdGeom, Gf
+from pxr import UsdGeom, Gf, UsdPhysics, PhysxSchema
 import omni
 
 config_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "warehouse_config.json")
@@ -66,3 +66,43 @@ def generate_cross_conveyor(stage, config, run_name):
     payloads.AddPayload(assetPath = "../Assets/conveyor_modules/conveyor_module_straight.usd")
     UsdGeom.Xformable(cross_conveyor_prim).AddTranslateOp().Set(Gf.Vec3d(x_position, y_position, 0))
     UsdGeom.Xformable(cross_conveyor_prim).AddRotateZOp().Set(-90)
+
+def diverter_arm(stage, config, speed):
+    position_x_m = config["diverter"]["position_x_m"]
+    position_y_m = config["diverter"]["position_y_m"]
+    position_z_m = config["conveyor"]["belt_height_m"]
+    trigger_depth_m = config["diverter"]["trigger_depth_m"]
+    trigger_height_m = config["diverter"]["trigger_height_m"]
+    arm_extend_time_s = config["diverter"]["arm_extend_time_s"]
+    upstream_offset = speed * arm_extend_time_s
+    trigger_y_m = position_y_m + upstream_offset
+    centreline_x_m = config["conveyor"]["outbound"]["centreline_x_m"]
+    belt_width_m = config["conveyor"]["belt_width_m"]
+    retracted_position_m = config["diverter"]["retracted_position_m"]
+
+    stage.RemovePrim("/World/Layout/Conveyor/Diverter")
+    stage.RemovePrim("/World/Layout/Conveyor/Diverter_Trigger")
+
+    diverter_prim = stage.DefinePrim("/World/Layout/Conveyor/Diverter", "Xform")
+    payloads = diverter_prim.GetPayloads()
+    payloads.AddPayload(assetPath="../Assets/divider_arm.usd")
+    UsdGeom.Xformable(diverter_prim).AddTranslateOp().Set(Gf.Vec3d(position_x_m, position_y_m, position_z_m))
+    joint_prim = stage.GetPrimAtPath("/World/Layout/Conveyor/Diverter/divider_arm/PusherJoint")
+    if joint_prim.IsValid():
+        drive = UsdPhysics.DriveAPI(joint_prim, "linear")
+        drive.CreateTargetPositionAttr().Set(retracted_position_m)
+
+    trigger = UsdGeom.Cube.Define(stage, "/World/Layout/Conveyor/Diverter_Trigger")
+    xform = UsdGeom.Xformable(trigger)
+    xform.AddTranslateOp().Set(Gf.Vec3d(centreline_x_m, trigger_y_m, position_z_m + trigger_height_m / 2.0))
+    xform.AddScaleOp().Set(Gf.Vec3f(
+        belt_width_m / 2.0,
+        trigger_depth_m / 2.0,
+        trigger_height_m / 2.0
+    ))
+
+    trigger_prim = trigger.GetPrim()
+    UsdPhysics.CollisionAPI.Apply(trigger_prim)
+    PhysxSchema.PhysxTriggerAPI.Apply(trigger_prim)
+    PhysxSchema.PhysxTriggerStateAPI.Apply(trigger_prim)
+    print("trigger schemas after apply:", trigger_prim.GetAppliedSchemas())

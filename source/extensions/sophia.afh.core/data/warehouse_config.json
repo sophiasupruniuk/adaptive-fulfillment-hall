@@ -61,10 +61,13 @@
   },
 
   "diverter": {
-    "position_x_m": 6.5,
-    "position_y_m": 23.0,
+    "position_x_m": 6.8,
+    "position_y_m": 22.1,
     "push_direction": "+x",
-    "arm_extend_time_s": 0.25
+    "arm_extend_time_s": 0.05,
+    "trigger_depth_m": 0.2,
+    "trigger_height_m": 0.4,
+    "retracted_position_m": -0.6
   },
 
   "door": {
