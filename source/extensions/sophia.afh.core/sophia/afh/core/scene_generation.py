@@ -66,16 +66,17 @@ def generate_cross_conveyor(stage, config, run_name):
     payloads.AddPayload(assetPath = "../Assets/conveyor_modules/conveyor_module_straight.usd")
     UsdGeom.Xformable(cross_conveyor_prim).AddTranslateOp().Set(Gf.Vec3d(x_position, y_position, 0))
     UsdGeom.Xformable(cross_conveyor_prim).AddRotateZOp().Set(-90)
+    velocity_api = PhysxSchema.PhysxSurfaceVelocityAPI(cross_conveyor_prim)
+    velocity_api.CreateSurfaceVelocityLocalSpaceAttr().Set(False)
 
 def diverter_arm(stage, config, speed):
     position_x_m = config["diverter"]["position_x_m"]
     position_y_m = config["diverter"]["position_y_m"]
-    position_z_m = config["conveyor"]["belt_height_m"]
+    position_z_m = config["conveyor"]["belt_height_m"] + config["diverter"]["height_offset_m"]
     trigger_depth_m = config["diverter"]["trigger_depth_m"]
     trigger_height_m = config["diverter"]["trigger_height_m"]
-    arm_extend_time_s = config["diverter"]["arm_extend_time_s"]
-    upstream_offset = speed * arm_extend_time_s
-    trigger_y_m = position_y_m + upstream_offset
+    trigger_offset_m = config["diverter"]["trigger_offset_m"]
+    trigger_y_m = position_y_m + trigger_offset_m
     centreline_x_m = config["conveyor"]["outbound"]["centreline_x_m"]
     belt_width_m = config["conveyor"]["belt_width_m"]
     retracted_position_m = config["diverter"]["retracted_position_m"]

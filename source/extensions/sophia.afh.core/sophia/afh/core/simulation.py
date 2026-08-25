@@ -18,9 +18,12 @@ class SimulationController:
         self._fallen = set()
         self._parcel_state = {}
         self._jammed = set()
-        self._parcel_assets = ["../Assets/parcels/parcel_small.usd", "../Assets/parcels/parcel_medium.usd", "../Assets/parcels/parcel_large.usd"]
+        self._arm_state = "home"
+        self._arm_timer = 0.0
+        self._parcel_assets = ["../Assets/parcels/parcel_small.usd", "../Assets/parcels/parcel_medium.usd", "../Assets/parcels/parcel_large.usd", ]
 
     def start(self, spawn_rate_per_hour, speed, aisle_width, automation_level, seed):
+        config = load_config()
         self._run_time = 0.0
         self._event_log.reset()
         self._spawn_rate_per_hour = spawn_rate_per_hour
@@ -28,8 +31,16 @@ class SimulationController:
         self._apply_automation_level(automation_level)
         self._apply_conveyor_speed(speed)
         random.seed(seed)
+        trigger_offset_m = config["diverter"]["trigger_offset_m"]
+        arm_travel_time_s = config["diverter"]["arm_travel_time_s"]
+        self._dwell_time = config["diverter"]["dwell_time_s"]
+        self._retracted_position = config["diverter"]["retracted_position_m"]
+        self._extended_position = config["diverter"]["extended_position_m"]
+        ratio = config["conveyor"]["parcel_speed_ratio"]
+        self._response_delay = max(0.0, trigger_offset_m / (speed * ratio) - arm_travel_time_s)
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._subscription = stream.create_subscription_to_pop(self._on_update, name="Parcel Spawner")
+        print("response_delay:", self._response_delay, "speed:", speed)
 
     def stop(self):
         self._subscription = None
@@ -54,7 +65,7 @@ class SimulationController:
             parcel = stage.DefinePrim(f"/World/Parcel/Parcel_{self._parcel_count:02d}", "Xform")
             payload = parcel.GetPayloads()
             payload.AddPayload(random.choice(self._parcel_assets))
-            UsdGeom.Xformable(parcel).AddTranslateOp().Set(Gf.Vec3d(7.5, 25, 2.0))
+            UsdGeom.Xformable(parcel).AddTranslateOp().Set(Gf.Vec3d(7.4, 25, 2.0))
             self._time_since_spawn = 0.0
         trigger_prim = stage.GetPrimAtPath(self._trigger_path)
         parcels = []
@@ -65,7 +76,25 @@ class SimulationController:
             parcels = [t for t in targets if "/World/Parcel/" in str(t)]
 
         if drive:
-            drive.CreateTargetPositionAttr().Set(0.0 if parcels else -0.6)
+            if self._arm_state == "home":
+                if parcels:
+                    self._arm_state = "waiting"
+                    self._arm_timer = 0.0
+                    print("DETECT at", round(self._run_time, 2), "dt", round(dt, 4))
+
+            elif self._arm_state == "waiting":
+                self._arm_timer += dt
+                if self._arm_timer >= self._response_delay:
+                    drive.CreateTargetPositionAttr().Set(self._extended_position)
+                    self._arm_state = "extended"
+                    self._arm_timer = 0.0
+                    print("EXTEND at", round(self._run_time, 2), "dt", round(dt, 4))
+
+            elif self._arm_state == "extended":
+                self._arm_timer += dt
+                if self._arm_timer >= self._dwell_time and not parcels:
+                    drive.CreateTargetPositionAttr().Set(self._retracted_position)
+                    self._arm_state = "home"
 
         get_parcel_path = stage.GetPrimAtPath("/World/Parcel")
         if not get_parcel_path.IsValid():
@@ -88,6 +117,9 @@ class SimulationController:
                 else:
                     self._parcel_state[parcel.GetPath()]["still_time"] = 0.0
                 self._parcel_state[parcel.GetPath()]["last_pos"] = parcel_transform
+        for p, s in self._parcel_state.items():
+            if "Parcel_01" in str(p):
+                print(round(self._run_time, 2), round(s["last_pos"][1], 3))
 
         stalled = [path for path, s in self._parcel_state.items() if s["still_time"] > 3.0]
         for a in stalled:
@@ -108,7 +140,6 @@ class SimulationController:
                     print("JAM", self._run_time, a)
 
     def _apply_conveyor_speed(self, speed):
-        print("APPLY SPEED CALLED, speed =", speed)
         stage = omni.usd.get_context().get_stage()
         config = load_config()
         unit = {"+y": (0, 1, 0), "-y": (0, -1, 0), "+x": (1, 0, 0), "-x": (-1, 0, 0)}
@@ -117,7 +148,6 @@ class SimulationController:
             u = unit[direction]
             velocity = Gf.Vec3f(u[0] * speed, u[1] * speed, u[2] * speed)
             run_prim = stage.GetPrimAtPath(f"/World/Layout/Conveyor/{run_name}")
-            print("   ", run_name, direction, run_prim.IsValid())
             if not run_prim.IsValid():
                 continue
             for segment in run_prim.GetChildren():
