@@ -37,8 +37,19 @@ class SimulationController:
         self._apply_aisle_width(aisle_width)
         self._apply_automation_level(automation_level)
         self._apply_conveyor_speed(speed)
+        self._centreline_x = config["conveyor"]["outbound"]["centreline_x_m"]
+        self._inbound_x = config["conveyor"]["inbound"]["centreline_x_m"]
+        self._midpoint_x = (self._inbound_x + self._centreline_x) / 2
+        self._belt_width = config["conveyor"]["belt_width_m"]
+        self._belt_height = config["conveyor"]["belt_height_m"]
+        self._drop_height = config["spawn"]["drop_height_m"]
         self._inbound_end = config["conveyor"]["inbound"]["start_y_m"]
         self._outbound_end = config["conveyor"]["outbound"]["end_y_m"]
+        self._spawn_point = Gf.Vec3d(
+            self._centreline_x - config["spawn"]["start_offset_x"],
+            config["conveyor"]["outbound"]["start_y_m"] - config["spawn"]["start_offset_y"],
+            self._belt_height + self._drop_height,
+        )
         random.seed(seed)
         trigger_offset_m = config["diverter"]["trigger_offset_m"]
         arm_travel_time_s = config["diverter"]["arm_travel_time_s"]
@@ -73,7 +84,7 @@ class SimulationController:
             parcel = stage.DefinePrim(f"/World/Parcel/Parcel_{self._parcel_count:02d}", "Xform")
             payload = parcel.GetPayloads()
             payload.AddPayload(random.choice(self._parcel_assets))
-            UsdGeom.Xformable(parcel).AddTranslateOp().Set(Gf.Vec3d(7.4, 25, 2.0))
+            UsdGeom.Xformable(parcel).AddTranslateOp().Set(self._spawn_point)
             self._time_since_spawn = 0.0
         trigger_prim = stage.GetPrimAtPath(self._trigger_path)
         parcels = []
@@ -116,7 +127,7 @@ class SimulationController:
                 self._event_log.record("fall", self._run_time, parcel_transform)
                 to_remove.append(parcel.GetPath())
 
-            if parcel_transform[1] >= self._inbound_end:
+            if parcel_transform[1] >= self._inbound_end and parcel_transform[0] >= self._inbound_x:
                 self._completed.add(parcel.GetPath())
                 self._event_log.record("Completed", self._run_time, parcel_transform)
                 to_remove.append(parcel.GetPath())

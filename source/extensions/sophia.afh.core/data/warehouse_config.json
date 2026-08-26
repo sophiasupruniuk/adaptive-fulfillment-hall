@@ -84,6 +84,8 @@
   },
 
   "spawn": {
-    "drop_height_m": 1.2
+    "drop_height_m": 1.2,
+    "start_offset_y": 1,
+    "start_offset_x": 0.1
   }
 }
