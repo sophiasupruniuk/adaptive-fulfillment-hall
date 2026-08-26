@@ -9,6 +9,26 @@ def load_config():
     with open(config_path) as f:
         return json.load(f)
 
+def generate_layout(stage, config, row_count):
+    length = config["hall"]["interior_max_y_m"] - config["hall"]["interior_min_y_m"]
+    bay_depth = config["rack"]["bay_depth_m"]
+
+    def max_rows(aisle_w):
+        return int((length - aisle_w) / (bay_depth + aisle_w))
+    layout = stage.GetPrimAtPath("/World/Layout")
+    aisle = layout.GetVariantSet("AisleWidth")
+    previous = aisle.GetVariantSelection()
+    aisle.SetVariantSelection("Narrow")
+    narrow_w = config["aisle"]["narrow_m"]
+    wide_w = config["aisle"]["wide_m"]
+    with aisle.GetVariantEditContext():
+        generate_racks(stage, config, config["aisle"]["narrow_m"], min(row_count, max_rows(narrow_w)))
+    aisle.SetVariantSelection("Wide")
+    with aisle.GetVariantEditContext():
+        generate_racks(stage, config, config["aisle"]["wide_m"], min(row_count, max_rows(wide_w)))
+
+    aisle.SetVariantSelection(previous)
+
 def generate_racks(stage, config, aisle_width_m, row_count):
     interior_min_y_m = config["hall"]["interior_min_y_m"]
     bay_depth_m = config["rack"]["bay_depth_m"]
