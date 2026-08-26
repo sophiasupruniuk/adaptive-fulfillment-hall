@@ -12,22 +12,35 @@ def load_config():
 def generate_layout(stage, config, row_count):
     length = config["hall"]["interior_max_y_m"] - config["hall"]["interior_min_y_m"]
     bay_depth = config["rack"]["bay_depth_m"]
+    narrow_w = config["aisle"]["narrow_m"]
+    wide_w = config["aisle"]["wide_m"]
 
-    def max_rows(aisle_w):
-        return int((length - aisle_w) / (bay_depth + aisle_w))
+    errors = []
+
+    for name, aisle_w in [("Narrow", narrow_w), ("Wide", wide_w)]:
+        required = aisle_w + row_count * (bay_depth + aisle_w)
+        if required > length:
+            errors.append(
+                f"{row_count} rows at {aisle_w} m aisles requires "
+                f"{required:.1f} m but only {length:.1f} m is available "
+                f"({name} variant)."
+            )
+
+    if errors:
+        return errors
+
     layout = stage.GetPrimAtPath("/World/Layout")
     aisle = layout.GetVariantSet("AisleWidth")
     previous = aisle.GetVariantSelection()
     aisle.SetVariantSelection("Narrow")
-    narrow_w = config["aisle"]["narrow_m"]
-    wide_w = config["aisle"]["wide_m"]
     with aisle.GetVariantEditContext():
-        generate_racks(stage, config, config["aisle"]["narrow_m"], min(row_count, max_rows(narrow_w)))
+        generate_racks(stage, config, config["aisle"]["narrow_m"], row_count)
     aisle.SetVariantSelection("Wide")
     with aisle.GetVariantEditContext():
-        generate_racks(stage, config, config["aisle"]["wide_m"], min(row_count, max_rows(wide_w)))
+        generate_racks(stage, config, config["aisle"]["wide_m"], row_count)
 
     aisle.SetVariantSelection(previous)
+    return []
 
 def generate_racks(stage, config, aisle_width_m, row_count):
     interior_min_y_m = config["hall"]["interior_min_y_m"]
