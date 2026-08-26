@@ -16,6 +16,8 @@ class SimulationController:
         self._run_time = 0.0
         self._event_log = EventLog()
         self._fallen = set()
+        self._completed = set()
+        self._missed = set()
         self._parcel_state = {}
         self._jammed = set()
         self._arm_state = "home"
@@ -26,10 +28,17 @@ class SimulationController:
         config = load_config()
         self._run_time = 0.0
         self._event_log.reset()
+        self._completed.clear()
+        self._missed.clear()
+        self._jammed.clear()
+        self._fallen.clear()
+        self._parcel_state.clear()
         self._spawn_rate_per_hour = spawn_rate_per_hour
         self._apply_aisle_width(aisle_width)
         self._apply_automation_level(automation_level)
         self._apply_conveyor_speed(speed)
+        self._inbound_end = config["conveyor"]["inbound"]["start_y_m"]
+        self._outbound_end = config["conveyor"]["outbound"]["end_y_m"]
         random.seed(seed)
         trigger_offset_m = config["diverter"]["trigger_offset_m"]
         arm_travel_time_s = config["diverter"]["arm_travel_time_s"]
@@ -40,7 +49,6 @@ class SimulationController:
         self._response_delay = max(0.0, trigger_offset_m / (speed * ratio) - arm_travel_time_s)
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._subscription = stream.create_subscription_to_pop(self._on_update, name="Parcel Spawner")
-        print("response_delay:", self._response_delay, "speed:", speed)
 
     def stop(self):
         self._subscription = None
@@ -80,7 +88,6 @@ class SimulationController:
                 if parcels:
                     self._arm_state = "waiting"
                     self._arm_timer = 0.0
-                    print("DETECT at", round(self._run_time, 2), "dt", round(dt, 4))
 
             elif self._arm_state == "waiting":
                 self._arm_timer += dt
@@ -88,7 +95,6 @@ class SimulationController:
                     drive.CreateTargetPositionAttr().Set(self._extended_position)
                     self._arm_state = "extended"
                     self._arm_timer = 0.0
-                    print("EXTEND at", round(self._run_time, 2), "dt", round(dt, 4))
 
             elif self._arm_state == "extended":
                 self._arm_timer += dt
@@ -101,11 +107,23 @@ class SimulationController:
             return
         parcel_children = get_parcel_path.GetChildren()
 
+        to_remove = []
+
         for parcel in parcel_children:
             parcel_transform = parcel.GetAttribute("xformOp:translate").Get()
-            if parcel_transform[2] < 0.3 and parcel.GetPath() not in self._fallen:
+            if parcel_transform[2] < 0.6 and parcel.GetPath() not in self._fallen:
                 self._fallen.add(parcel.GetPath())
                 self._event_log.record("fall", self._run_time, parcel_transform)
+                to_remove.append(parcel.GetPath())
+
+            if parcel_transform[1] >= self._inbound_end:
+                self._completed.add(parcel.GetPath())
+                self._event_log.record("Completed", self._run_time, parcel_transform)
+                to_remove.append(parcel.GetPath())
+            elif parcel_transform[1] <= self._outbound_end:
+                self._missed.add(parcel.GetPath())
+                self._event_log.record("Missed", self._run_time, parcel_transform)
+                to_remove.append(parcel.GetPath())
 
             if parcel.GetPath() not in self._parcel_state:
                 self._parcel_state[parcel.GetPath()] = {"last_pos": parcel_transform, "still_time": 0.0}
@@ -117,9 +135,12 @@ class SimulationController:
                 else:
                     self._parcel_state[parcel.GetPath()]["still_time"] = 0.0
                 self._parcel_state[parcel.GetPath()]["last_pos"] = parcel_transform
-        for p, s in self._parcel_state.items():
-            if "Parcel_01" in str(p):
-                print(round(self._run_time, 2), round(s["last_pos"][1], 3))
+
+        for path in to_remove:
+            stage.RemovePrim(path)
+            self._parcel_state.pop(path, None)
+            self._fallen.discard(path)
+            self._jammed.discard(path)
 
         stalled = [path for path, s in self._parcel_state.items() if s["still_time"] > 3.0]
         for a in stalled:
@@ -137,7 +158,6 @@ class SimulationController:
                 if a not in self._jammed:
                     self._jammed.add(a)
                     self._event_log.record("jam", self._run_time, self._parcel_state[a]["last_pos"])
-                    print("JAM", self._run_time, a)
 
     def _apply_conveyor_speed(self, speed):
         stage = omni.usd.get_context().get_stage()
