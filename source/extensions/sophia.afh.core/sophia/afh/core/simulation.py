@@ -2,7 +2,7 @@ import omni.kit.app
 import omni.usd
 import random
 from pxr import UsdGeom, Gf, PhysxSchema, UsdPhysics
-from .measurement import EventLog
+from .measurement import EventLog, KPICollector
 from .scene_generation import (
     load_config,
     generate_layout,
@@ -21,6 +21,7 @@ class SimulationController:
         self._joint_path = "/World/Layout/Conveyor/Diverter/divider_arm/PusherJoint"
         self._run_time = 0.0
         self._event_log = EventLog()
+        self._kpis = KPICollector()
         self._fallen = set()
         self._completed = set()
         self._missed = set()
@@ -34,6 +35,7 @@ class SimulationController:
         config = load_config()
         self._run_time = 0.0
         self._event_log.reset()
+        self._kpis.reset()
         self._completed.clear()
         self._missed.clear()
         self._jammed.clear()
@@ -93,10 +95,6 @@ class SimulationController:
         self._apply_aisle_width(aisle_width)
         self._apply_automation_level(automation_level)
 
-        layout = stage.GetPrimAtPath("/World/Layout")
-        print("selection after apply:", layout.GetVariantSet("AisleWidth").GetVariantSelection())
-        layout = stage.GetPrimAtPath("/World/Layout")
-        print("selection after apply:", layout.GetVariantSet("AisleWidth").GetVariantSelection())
         return errors
 
     def _on_update(self, event):
@@ -115,6 +113,7 @@ class SimulationController:
             payload.AddPayload(random.choice(self._parcel_assets))
             UsdGeom.Xformable(parcel).AddTranslateOp().Set(self._spawn_point)
             self._time_since_spawn = 0.0
+            self._kpis.record_spawn()
         trigger_prim = stage.GetPrimAtPath(self._trigger_path)
         parcels = []
         if trigger_prim.IsValid():
@@ -135,12 +134,19 @@ class SimulationController:
                     drive.CreateTargetPositionAttr().Set(self._extended_position)
                     self._arm_state = "extended"
                     self._arm_timer = 0.0
+                    self._kpis.record_diverted()
+                    self._kpis.record_diverter_travel(
+                        abs(self._extended_position - self._retracted_position)
+                    )
 
             elif self._arm_state == "extended":
                 self._arm_timer += dt
                 if self._arm_timer >= self._dwell_time and not parcels:
                     drive.CreateTargetPositionAttr().Set(self._retracted_position)
                     self._arm_state = "home"
+                    self._kpis.record_diverter_travel(
+                        abs(self._extended_position - self._retracted_position)
+                    )
 
         get_parcel_path = stage.GetPrimAtPath("/World/Parcel")
         if not get_parcel_path.IsValid():
@@ -154,19 +160,28 @@ class SimulationController:
             if parcel_transform[2] < 0.6 and parcel.GetPath() not in self._fallen:
                 self._fallen.add(parcel.GetPath())
                 self._event_log.record("fall", self._run_time, parcel_transform)
+                self._kpis.record_fall()
                 to_remove.append(parcel.GetPath())
 
             if parcel_transform[1] >= self._inbound_end and parcel_transform[0] >= self._inbound_x:
                 self._completed.add(parcel.GetPath())
                 self._event_log.record("Completed", self._run_time, parcel_transform)
+                tracked = self._parcel_state.get(parcel.GetPath())
+                transit = self._run_time - tracked["spawn_time"] if tracked else 0.0
+                self._kpis.record_completion(transit)
                 to_remove.append(parcel.GetPath())
             elif parcel_transform[1] <= self._outbound_end:
                 self._missed.add(parcel.GetPath())
                 self._event_log.record("Missed", self._run_time, parcel_transform)
+                self._kpis.record_missed()
                 to_remove.append(parcel.GetPath())
 
             if parcel.GetPath() not in self._parcel_state:
-                self._parcel_state[parcel.GetPath()] = {"last_pos": parcel_transform, "still_time": 0.0}
+                self._parcel_state[parcel.GetPath()] = {
+                    "last_pos": parcel_transform,
+                    "still_time": 0.0,
+                    "spawn_time": self._run_time,
+                }
             else:
                 last = self._parcel_state[parcel.GetPath()]["last_pos"]
                 moved = (parcel_transform - last).GetLength()
@@ -198,6 +213,7 @@ class SimulationController:
                 if a not in self._jammed:
                     self._jammed.add(a)
                     self._event_log.record("jam", self._run_time, self._parcel_state[a]["last_pos"])
+                    self._kpis.record_jammed()
 
     def _apply_conveyor_speed(self, speed):
         stage = omni.usd.get_context().get_stage()
@@ -222,8 +238,6 @@ class SimulationController:
         aisle_prim = stage.GetPrimAtPath("/World/Layout")
         names = ["Narrow", "Wide"]
         aisle_prim.GetVariantSet("AisleWidth").SetVariantSelection(names[aisle_width])
-        print("apply_aisle_width: index", aisle_width, "->", names[aisle_width],
-              "| now:", aisle_prim.GetVariantSet("AisleWidth").GetVariantSelection())
 
     def _apply_automation_level(self, automation_level):
         stage = omni.usd.get_context().get_stage()
