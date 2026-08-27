@@ -3,7 +3,13 @@ import omni.usd
 import random
 from pxr import UsdGeom, Gf, PhysxSchema, UsdPhysics
 from .measurement import EventLog
-from .scene_generation import load_config
+from .scene_generation import (
+    load_config,
+    generate_layout,
+    generate_conveyor,
+    generate_cross_conveyor,
+    diverter_arm,
+)
 
 class SimulationController:
     def __init__(self):
@@ -69,6 +75,29 @@ class SimulationController:
         parcels = stage.GetPrimAtPath("/World/Parcel")
         if parcels.IsValid():
             stage.RemovePrim("/World/Parcel")
+
+    def generate(self, row_count, aisle_width, automation_level):
+        stage = omni.usd.get_context().get_stage()
+        if stage is None:
+            return ["Stage not opened"]
+
+        config = load_config()
+
+        errors = generate_layout(stage, config, row_count)
+
+        generate_conveyor(stage, config, "inbound")
+        generate_conveyor(stage, config, "outbound")
+        generate_cross_conveyor(stage, config, "cross")
+        diverter_arm(stage, config)
+
+        self._apply_aisle_width(aisle_width)
+        self._apply_automation_level(automation_level)
+
+        layout = stage.GetPrimAtPath("/World/Layout")
+        print("selection after apply:", layout.GetVariantSet("AisleWidth").GetVariantSelection())
+        layout = stage.GetPrimAtPath("/World/Layout")
+        print("selection after apply:", layout.GetVariantSet("AisleWidth").GetVariantSelection())
+        return errors
 
     def _on_update(self, event):
         stage = omni.usd.get_context().get_stage()
@@ -193,6 +222,8 @@ class SimulationController:
         aisle_prim = stage.GetPrimAtPath("/World/Layout")
         names = ["Narrow", "Wide"]
         aisle_prim.GetVariantSet("AisleWidth").SetVariantSelection(names[aisle_width])
+        print("apply_aisle_width: index", aisle_width, "->", names[aisle_width],
+              "| now:", aisle_prim.GetVariantSet("AisleWidth").GetVariantSelection())
 
     def _apply_automation_level(self, automation_level):
         stage = omni.usd.get_context().get_stage()

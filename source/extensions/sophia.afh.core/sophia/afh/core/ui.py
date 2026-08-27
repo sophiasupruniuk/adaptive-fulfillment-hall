@@ -16,6 +16,16 @@ class ControlPanel:
         def on_stop():
             self._controller.stop()
 
+        def on_generate():
+            rows = self._rows_slider.model.get_value_as_int()
+            aisle_width = self._aisle_width_option.model.get_item_value_model().get_value_as_int()
+            automation_level = self._automation_level_option.model.get_item_value_model().get_value_as_int()
+            errors = self._controller.generate(rows, aisle_width, automation_level)
+            if errors:
+                self._status_label.text = "\n".join(errors)
+            else:
+                self._status_label.text = f"Generated {rows} rows"
+
         self._window = ui.Window("Adaptive Fulfillment Hall", width=300, height=300)
         with self._window.frame:
             with ui.VStack():
@@ -32,6 +42,11 @@ class ControlPanel:
                 ui.Label("Random Seed:")
                 self._seed_field = ui.IntField()
                 self._seed_field.model.set_value(22)
+                ui.Label("Rack Rows:")
+                self._rows_slider = ui.IntSlider(min = 4, max = 12)
+                self._rows_slider.model.set_value(6)
+                self._status_label = ui.Label("")
+                ui.Button("Generate Layout", clicked_fn = on_generate)
                 ui.Button("Run", clicked_fn=on_run)
                 ui.Button("Stop", clicked_fn=on_stop)
 

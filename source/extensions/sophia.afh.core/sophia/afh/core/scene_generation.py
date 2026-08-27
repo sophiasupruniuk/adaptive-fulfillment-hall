@@ -14,19 +14,18 @@ def generate_layout(stage, config, row_count):
     bay_depth = config["rack"]["bay_depth_m"]
     narrow_w = config["aisle"]["narrow_m"]
     wide_w = config["aisle"]["wide_m"]
+    def max_rows(aisle_w):
+        return int((length - aisle_w) / (bay_depth + aisle_w))
+
 
     errors = []
 
-    for name, aisle_w in [("Narrow", narrow_w), ("Wide", wide_w)]:
-        required = aisle_w + row_count * (bay_depth + aisle_w)
-        if required > length:
-            errors.append(
-                f"{row_count} rows at {aisle_w} m aisles requires "
-                f"{required:.1f} m but only {length:.1f} m is available "
-                f"({name} variant)."
-            )
-
-    if errors:
+    if row_count > max_rows(narrow_w):
+        required = narrow_w + row_count * (bay_depth + narrow_w)
+        errors.append(
+            f"{row_count} rows at {narrow_w} m aisles requires "
+            f"{required:.1f} m but only {length:.1f} m is available."
+        )
         return errors
 
     layout = stage.GetPrimAtPath("/World/Layout")
@@ -34,13 +33,21 @@ def generate_layout(stage, config, row_count):
     previous = aisle.GetVariantSelection()
     aisle.SetVariantSelection("Narrow")
     with aisle.GetVariantEditContext():
-        generate_racks(stage, config, config["aisle"]["narrow_m"], row_count)
+        generate_racks(stage, config, config["aisle"]["narrow_m"], min(row_count, max_rows(narrow_w)))
     aisle.SetVariantSelection("Wide")
     with aisle.GetVariantEditContext():
-        generate_racks(stage, config, config["aisle"]["wide_m"], row_count)
+        generate_racks(stage, config, config["aisle"]["wide_m"], min(row_count, max_rows(wide_w)))
+
+    wide_max = max_rows(wide_w)
+    if row_count > wide_max:
+        required = wide_w + row_count * (bay_depth + wide_w)
+        errors.append(
+            f"Wide aisles capped at {wide_max} rows: "
+            f"{row_count} rows would need {required:.1f} m of {length:.1f} m."
+        )
 
     aisle.SetVariantSelection(previous)
-    return []
+    return errors
 
 def generate_racks(stage, config, aisle_width_m, row_count):
     interior_min_y_m = config["hall"]["interior_min_y_m"]
@@ -102,7 +109,7 @@ def generate_cross_conveyor(stage, config, run_name):
     velocity_api = PhysxSchema.PhysxSurfaceVelocityAPI(cross_conveyor_prim)
     velocity_api.CreateSurfaceVelocityLocalSpaceAttr().Set(False)
 
-def diverter_arm(stage, config, speed):
+def diverter_arm(stage, config):
     position_x_m = config["diverter"]["position_x_m"]
     position_y_m = config["diverter"]["position_y_m"]
     position_z_m = config["conveyor"]["belt_height_m"] + config["diverter"]["height_offset_m"]
@@ -139,4 +146,3 @@ def diverter_arm(stage, config, speed):
     UsdPhysics.CollisionAPI.Apply(trigger_prim)
     PhysxSchema.PhysxTriggerAPI.Apply(trigger_prim)
     PhysxSchema.PhysxTriggerStateAPI.Apply(trigger_prim)
-    print("trigger schemas after apply:", trigger_prim.GetAppliedSchemas())
