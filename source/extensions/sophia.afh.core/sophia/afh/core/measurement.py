@@ -31,14 +31,18 @@ class KPICollector:
         self._transit_total = 0.0
         self._transit_count = 0
         self._diverter_travel = 0.0
+        self._targeted = 0
+        self._targeted_completed = 0
 
     def record_spawn(self):
         self._spawned += 1
 
-    def record_completion(self, transit_time):
+    def record_completion(self, transit_time, was_targeted):
         self._completed += 1
         self._transit_total += transit_time
         self._transit_count += 1
+        if was_targeted:
+            self._targeted_completed += 1
 
     def record_fall(self):
         self._fallen += 1
@@ -55,6 +59,10 @@ class KPICollector:
     def record_diverter_travel(self, distance):
         self._diverter_travel += distance
 
+    def record_targeted(self):
+        """Count a parcel the diverter selected for diversion."""
+        self._targeted += 1
+
     def get_KPI(self):
         """Return all KPIs as a dictionary."""
         read = {
@@ -63,7 +71,7 @@ class KPICollector:
             "Fallen": self._fallen,
             "Missed": self._missed,
             "Diverted": self._diverted,
-            "Diversion Success Rate": self._completed / self._diverted if self._diverted else 0.0,
+            "Diversion Success Rate": self._targeted_completed / self._targeted if self._targeted else 0.0,
             "Jammed": self._jammed,
             "Average Transit Time": self._transit_total / self._transit_count if self._transit_count else 0.0,
             "Diverter Travel": self._diverter_travel
@@ -82,3 +90,5 @@ class KPICollector:
         self._transit_total = 0.0
         self._transit_count = 0
         self._diverter_travel = 0.0
+        self._targeted = 0
+        self._targeted_completed = 0

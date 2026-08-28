@@ -27,6 +27,9 @@ class SimulationController:
         self._missed = set()
         self._parcel_state = {}
         self._jammed = set()
+        self._parcel_sizes = {}
+        self._targeted_sizes = ("medium", "large")
+        self._targeted = set()
         self._arm_state = "home"
         self._arm_timer = 0.0
         self._parcel_assets = ["../Assets/parcels/parcel_small.usd", "../Assets/parcels/parcel_medium.usd", "../Assets/parcels/parcel_large.usd", ]
@@ -40,7 +43,9 @@ class SimulationController:
         self._missed.clear()
         self._jammed.clear()
         self._fallen.clear()
+        self._parcel_sizes.clear()
         self._parcel_state.clear()
+        self._targeted.clear()
         self._spawn_rate_per_hour = spawn_rate_per_hour
         self._apply_aisle_width(aisle_width)
         self._apply_automation_level(automation_level)
@@ -78,6 +83,11 @@ class SimulationController:
         if parcels.IsValid():
             stage.RemovePrim("/World/Parcel")
 
+
+    def get_kpis(self):
+        """Return the current KPI values."""
+        return self._kpis.get_KPI()
+
     def generate(self, row_count, aisle_width, automation_level):
         stage = omni.usd.get_context().get_stage()
         if stage is None:
@@ -110,7 +120,14 @@ class SimulationController:
             self._parcel_count += 1
             parcel = stage.DefinePrim(f"/World/Parcel/Parcel_{self._parcel_count:02d}", "Xform")
             payload = parcel.GetPayloads()
-            payload.AddPayload(random.choice(self._parcel_assets))
+            asset = random.choice(self._parcel_assets)
+            payload.AddPayload(asset)
+            if "small" in asset:
+                self._parcel_sizes[parcel.GetPath()] = "small"
+            elif "medium" in asset:
+                self._parcel_sizes[parcel.GetPath()] = "medium"
+            else:
+                self._parcel_sizes[parcel.GetPath()] = "large"
             UsdGeom.Xformable(parcel).AddTranslateOp().Set(self._spawn_point)
             self._time_since_spawn = 0.0
             self._kpis.record_spawn()
@@ -124,7 +141,15 @@ class SimulationController:
 
         if drive:
             if self._arm_state == "home":
-                if parcels:
+                targeted = False
+                for t in parcels:
+                    parcel_path = t.GetParentPath()
+                    if self._parcel_sizes.get(parcel_path) in self._targeted_sizes:
+                        targeted = True
+                        self._targeted.add(parcel_path)
+                        self._kpis.record_targeted()
+                        break
+                if targeted:
                     self._arm_state = "waiting"
                     self._arm_timer = 0.0
 
@@ -163,12 +188,12 @@ class SimulationController:
                 self._kpis.record_fall()
                 to_remove.append(parcel.GetPath())
 
-            if parcel_transform[1] >= self._inbound_end and parcel_transform[0] >= self._inbound_x:
+            if parcel_transform[1] >= self._inbound_end:
                 self._completed.add(parcel.GetPath())
                 self._event_log.record("Completed", self._run_time, parcel_transform)
                 tracked = self._parcel_state.get(parcel.GetPath())
                 transit = self._run_time - tracked["spawn_time"] if tracked else 0.0
-                self._kpis.record_completion(transit)
+                self._kpis.record_completion(transit, parcel.GetPath() in self._targeted)
                 to_remove.append(parcel.GetPath())
             elif parcel_transform[1] <= self._outbound_end:
                 self._missed.add(parcel.GetPath())
@@ -196,6 +221,8 @@ class SimulationController:
             self._parcel_state.pop(path, None)
             self._fallen.discard(path)
             self._jammed.discard(path)
+            self._targeted.discard(path)
+            self._parcel_sizes.pop(path, None)
 
         stalled = [path for path, s in self._parcel_state.items() if s["still_time"] > 3.0]
         for a in stalled:

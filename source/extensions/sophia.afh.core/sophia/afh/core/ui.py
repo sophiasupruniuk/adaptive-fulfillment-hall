@@ -1,4 +1,5 @@
 import omni.ui as ui
+import omni.kit.app
 
 class ControlPanel:
     """Creates a Control Panel window for the Adaptive Fulfillment Hall simulation."""
@@ -46,11 +47,26 @@ class ControlPanel:
                 self._rows_slider = ui.IntSlider(min = 4, max = 12)
                 self._rows_slider.model.set_value(6)
                 self._status_label = ui.Label("")
+                self._kpi_label = ui.Label("")
                 ui.Button("Generate Layout", clicked_fn = on_generate)
                 ui.Button("Run", clicked_fn=on_run)
                 ui.Button("Stop", clicked_fn=on_stop)
+
+        self._kpi_timer = 0.0
+
+        def on_ui_update(event):
+            self._kpi_timer += event.payload["dt"]
+            if self._kpi_timer < 1.0:
+                return
+            self._kpi_timer = 0.0
+            kpis = self._controller.get_kpis()
+            self._kpi_label.text = "\n".join(f"{k}: {round(v, 2)}" for k, v in kpis.items())
+
+        stream = omni.kit.app.get_app().get_update_event_stream()
+        self._kpi_subscription = stream.create_subscription_to_pop(on_ui_update, name="KPI Display")
 
     def destroy(self):
         """Destroys the Control Panel window."""
         self._window.destroy()
         self._window = None
+        self._kpi_subscription = None

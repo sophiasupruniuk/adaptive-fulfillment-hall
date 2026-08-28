@@ -34,7 +34,7 @@
     "belt_height_m": 0.8,
     "belt_width_m": 0.75,
     "segment_length_m": 2.0,
-    "parcel_speed_ratio": 0.48,
+    "parcel_speed_ratio": 0.485,
 
     "inbound": {
       "centreline_x_m": 10.25,
