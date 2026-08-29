@@ -2,7 +2,7 @@ import omni.kit.app
 import omni.usd
 import random
 import os
-from pxr import UsdGeom, Gf, PhysxSchema, UsdPhysics
+from pxr import UsdGeom, Gf, PhysxSchema, UsdPhysics, Usd
 from .measurement import EventLog, KPICollector, export_run
 from .scene_generation import (
     load_config,
@@ -34,8 +34,33 @@ class SimulationController:
         self._parcel_assets = ["../Assets/parcels/parcel_small.usd", "../Assets/parcels/parcel_medium.usd", "../Assets/parcels/parcel_large.usd", ]
         self._parameters = {}
 
-    def start(self, spawn_rate_per_hour, speed, aisle_width, automation_level, seed, duration):
+    def start(self, spawn_rate_per_hour, speed, aisle_width, automation_level, seed, duration, scenario_name):
         config = load_config()
+        stage = omni.usd.get_context().get_stage()
+
+        override_layer = None
+        for layer in stage.GetLayerStack():
+            if "05_scenario_overrides" in layer.identifier:
+                override_layer = layer
+                break
+
+        previous_target = stage.GetEditTarget()
+        if override_layer:
+            stage.SetEditTarget(Usd.EditTarget(override_layer))
+
+        self._apply_aisle_width(aisle_width)
+        self._apply_automation_level(automation_level)
+        self._apply_conveyor_speed(speed)
+
+        stage.SetEditTarget(previous_target)
+
+        if override_layer:
+            copy_path = os.path.join(
+                os.path.dirname(override_layer.identifier),
+                f"05_{scenario_name}.usd",
+            )
+            override_layer.Export(copy_path)
+
         self._parameters = {
             "Arrival Rate (per hour)": spawn_rate_per_hour,
             "Conveyor Speed (m/s)":round(speed, 1),
@@ -56,9 +81,6 @@ class SimulationController:
         self._parcel_state.clear()
         self._targeted.clear()
         self._spawn_rate_per_hour = spawn_rate_per_hour
-        self._apply_aisle_width(aisle_width)
-        self._apply_automation_level(automation_level)
-        self._apply_conveyor_speed(speed)
         self._centreline_x = config["conveyor"]["outbound"]["centreline_x_m"]
         self._inbound_x = config["conveyor"]["inbound"]["centreline_x_m"]
         self._midpoint_x = (self._inbound_x + self._centreline_x) / 2

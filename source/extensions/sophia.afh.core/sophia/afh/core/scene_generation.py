@@ -144,21 +144,22 @@ def generate_automation(stage, config):
     layout = stage.GetPrimAtPath("/World/Layout")
     automation_level = layout.GetVariantSet("AutomationLevel")
 
-    stage.RemovePrim("/World/Layout/Conveyor")
-
     previous = automation_level.GetVariantSelection()
 
     automation_level.SetVariantSelection("Manual")
     with automation_level.GetVariantEditContext():
+        stage.RemovePrim("/World/Layout/Conveyor")
         pass
     automation_level.SetVariantSelection("Conveyor")
     with automation_level.GetVariantEditContext():
+        stage.RemovePrim("/World/Layout/Conveyor")
         generate_conveyor(stage, config, "inbound")
         generate_cross_conveyor(stage, config, "cross")
         generate_conveyor(stage, config, "outbound")
 
     automation_level.SetVariantSelection("ConveyorPlusDiverter")
     with automation_level.GetVariantEditContext():
+        stage.RemovePrim("/World/Layout/Conveyor")
         generate_conveyor(stage, config, "outbound")
         generate_conveyor(stage, config, "inbound")
         generate_cross_conveyor(stage, config, "cross")

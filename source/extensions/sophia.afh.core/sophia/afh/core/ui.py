@@ -13,7 +13,8 @@ class ControlPanel:
             automation_level = self._automation_level_option.model.get_item_value_model().get_value_as_int()
             seed = self._seed_field.model.get_value_as_int()
             duration = self._duration_slider.model.get_value_as_float()
-            self._controller.start(rate, speed, aisle_width, automation_level, seed, duration)
+            scenario = self._scenario_field.model.get_value_as_string()
+            self._controller.start(rate, speed, aisle_width, automation_level, seed, duration, scenario)
 
         def on_stop():
             self._controller.stop()
