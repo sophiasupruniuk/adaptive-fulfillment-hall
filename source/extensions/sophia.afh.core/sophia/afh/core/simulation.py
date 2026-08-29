@@ -61,6 +61,16 @@ class SimulationController:
             )
             override_layer.Export(copy_path)
 
+        aisle_w = [config["aisle"]["narrow_m"], config["aisle"]["wide_m"]][aisle_width]
+        length = config["hall"]["interior_max_y_m"] - config["hall"]["interior_min_y_m"]
+        bay_depth = config["rack"]["bay_depth_m"]
+        bay_width = config["rack"]["bay_width_m"]
+        band = config["bands"]["storage_end_x_m"] - config["bands"]["storage_start_x_m"]
+
+        rows = int((length - aisle_w) / (bay_depth + aisle_w))
+        bays = int(band / bay_width)
+        levels = config["rack"]["levels_per_bay"]
+
         self._parameters = {
             "Arrival Rate (per hour)": spawn_rate_per_hour,
             "Conveyor Speed (m/s)":round(speed, 1),
@@ -68,6 +78,7 @@ class SimulationController:
             "Automation Level": ["Manual", "Conveyor", "ConveyorPlusDiverter"][automation_level],
             "Random Seed": seed,
             "Run Duration (s)": round(duration, 1),
+            "Storage Positions": rows * bays * levels,
         }
         self._run_time = 0.0
         self._event_log.reset()
