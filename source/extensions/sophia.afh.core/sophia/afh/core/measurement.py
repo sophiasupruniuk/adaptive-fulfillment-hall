@@ -1,3 +1,7 @@
+import csv
+import datetime
+import os
+
 class EventLog:
     """Records failure events during a simulation run."""
 
@@ -92,3 +96,25 @@ class KPICollector:
         self._diverter_travel = 0.0
         self._targeted = 0
         self._targeted_completed = 0
+
+def export_run(scenario_name, parameters, kpis, events, output_dir):
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    os.makedirs(output_dir, exist_ok = True)
+    results_path = os.path.join(output_dir, f"{scenario_name}_{stamp}_results.csv")
+    events_path = os.path.join(output_dir, f"{scenario_name}_{stamp}_events.csv")
+    with open(results_path, "w", newline = "") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Scenario", scenario_name])
+        for key, value in parameters.items():
+            writer.writerow([key, value])
+        for key, value in kpis.items():
+            writer.writerow([key, value])
+
+    with open(events_path, "w", newline ="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["type", "time", "x", "y", "z"])
+        for e in events:
+            loc = e["location"]
+            writer.writerow([e["type"], e["time"], loc[0], loc[1], loc[2]])
+
+    return results_path, events_path

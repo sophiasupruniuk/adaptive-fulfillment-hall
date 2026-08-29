@@ -1,8 +1,9 @@
 import omni.kit.app
 import omni.usd
 import random
+import os
 from pxr import UsdGeom, Gf, PhysxSchema, UsdPhysics
-from .measurement import EventLog, KPICollector
+from .measurement import EventLog, KPICollector, export_run
 from .scene_generation import (
     load_config,
     generate_automation,
@@ -31,9 +32,18 @@ class SimulationController:
         self._arm_state = "home"
         self._arm_timer = 0.0
         self._parcel_assets = ["../Assets/parcels/parcel_small.usd", "../Assets/parcels/parcel_medium.usd", "../Assets/parcels/parcel_large.usd", ]
+        self._parameters = {}
 
     def start(self, spawn_rate_per_hour, speed, aisle_width, automation_level, seed, duration):
         config = load_config()
+        self._parameters = {
+            "Arrival Rate (per hour)": spawn_rate_per_hour,
+            "Conveyor Speed (m/s)":round(speed, 1),
+            "Aisle Width": ["Narrow", "Wide"][aisle_width],
+            "Automation Level": ["Manual", "Conveyor", "ConveyorPlusDiverter"][automation_level],
+            "Random Seed": seed,
+            "Run Duration (s)": round(duration, 1),
+        }
         self._run_time = 0.0
         self._event_log.reset()
         self._kpis.reset()
@@ -86,6 +96,17 @@ class SimulationController:
     def get_kpis(self):
         """Return the current KPI values."""
         return self._kpis.get_KPI()
+
+    def export(self, scenario_name):
+        """Write the run's parameters, KPIs and events to CSV."""
+        output_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "results")
+        return export_run(
+            scenario_name,
+            self._parameters,
+            self._kpis.get_KPI(),
+            self._event_log.get_events(),
+            output_dir,
+        )
 
     def generate(self, row_count, aisle_width, automation_level):
         stage = omni.usd.get_context().get_stage()

@@ -1,0 +1,16 @@
+Scenario,baseline
+Arrival Rate (per hour),600
+Conveyor Speed (m/s),1.2
+Aisle Width,Narrow
+Automation Level,ConveyorPlusDiverter
+Random Seed,22
+Run Duration (s),59.99999865889549
+Parcels Spawned,9
+Successful Transit,0
+Fallen,0
+Missed,0
+Diverted,2
+Diversion Success Rate,0.0
+Jammed,0
+Average Transit Time,0.0
+Diverter Travel,2.4

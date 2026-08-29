@@ -18,6 +18,11 @@ class ControlPanel:
         def on_stop():
             self._controller.stop()
 
+        def on_export():
+            name = self._scenario_field.model.get_value_as_string()
+            results, events = self._controller.export(name)
+            self._status_label.text = f"Exported to {results}"
+
         def on_generate():
             rows = self._rows_slider.model.get_value_as_int()
             aisle_width = self._aisle_width_option.model.get_item_value_model().get_value_as_int()
@@ -55,6 +60,10 @@ class ControlPanel:
                 self._duration_slider.model.set_value(300)
                 ui.Button("Run", clicked_fn=on_run)
                 ui.Button("Stop", clicked_fn=on_stop)
+                ui.Label("Scenario Name:")
+                self._scenario_field = ui.StringField()
+                self._scenario_field.model.set_value("baseline")
+                ui.Button("Export Results", clicked_fn=on_export)
 
         self._kpi_timer = 0.0
 
