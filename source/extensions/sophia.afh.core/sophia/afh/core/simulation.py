@@ -5,10 +5,8 @@ from pxr import UsdGeom, Gf, PhysxSchema, UsdPhysics
 from .measurement import EventLog, KPICollector
 from .scene_generation import (
     load_config,
-    generate_layout,
-    generate_conveyor,
-    generate_cross_conveyor,
-    diverter_arm,
+    generate_automation,
+    generate_layout
 )
 
 class SimulationController:
@@ -97,10 +95,7 @@ class SimulationController:
 
         errors = generate_layout(stage, config, row_count)
 
-        generate_conveyor(stage, config, "inbound")
-        generate_conveyor(stage, config, "outbound")
-        generate_cross_conveyor(stage, config, "cross")
-        diverter_arm(stage, config)
+        generate_automation(stage, config)
 
         self._apply_aisle_width(aisle_width)
         self._apply_automation_level(automation_level)

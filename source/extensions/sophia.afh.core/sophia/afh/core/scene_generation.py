@@ -82,8 +82,6 @@ def generate_conveyor(stage, config, run_name):
     belt_width_m = config["conveyor"]["belt_width_m"]
     x_position = centreline_x_m - belt_width_m / 2 #so that the central x for the line is aligned with the center of the conveyor
 
-    stage.RemovePrim(f"/World/Layout/Conveyor/{run_name}")
-
     for i in range(segments):
         y_position = first_y + i * segment_length_m
         conveyor_prim = stage.DefinePrim(f"/World/Layout/Conveyor/{run_name}/Segment_{i:02d}", "Xform")
@@ -98,8 +96,6 @@ def generate_cross_conveyor(stage, config, run_name):
     belt_width_m = config["conveyor"]["belt_width_m"]
     y_position = centreline_y_m - belt_width_m / 2
     x_position = min(start_x_m, end_x_m)
-
-    stage.RemovePrim(f"/World/Layout/Conveyor/{run_name}/cross_segment")
 
     cross_conveyor_prim = stage.DefinePrim(f"/World/Layout/Conveyor/{run_name}/cross_segment", "Xform")
     payloads = cross_conveyor_prim.GetPayloads()
@@ -120,9 +116,6 @@ def diverter_arm(stage, config):
     centreline_x_m = config["conveyor"]["outbound"]["centreline_x_m"]
     belt_width_m = config["conveyor"]["belt_width_m"]
     retracted_position_m = config["diverter"]["retracted_position_m"]
-
-    stage.RemovePrim("/World/Layout/Conveyor/Diverter")
-    stage.RemovePrim("/World/Layout/Conveyor/Diverter_Trigger")
 
     diverter_prim = stage.DefinePrim("/World/Layout/Conveyor/Diverter", "Xform")
     payloads = diverter_prim.GetPayloads()
@@ -146,3 +139,29 @@ def diverter_arm(stage, config):
     UsdPhysics.CollisionAPI.Apply(trigger_prim)
     PhysxSchema.PhysxTriggerAPI.Apply(trigger_prim)
     PhysxSchema.PhysxTriggerStateAPI.Apply(trigger_prim)
+
+def generate_automation(stage, config):
+    layout = stage.GetPrimAtPath("/World/Layout")
+    automation_level = layout.GetVariantSet("AutomationLevel")
+
+    stage.RemovePrim("/World/Layout/Conveyor")
+
+    previous = automation_level.GetVariantSelection()
+
+    automation_level.SetVariantSelection("Manual")
+    with automation_level.GetVariantEditContext():
+        pass
+    automation_level.SetVariantSelection("Conveyor")
+    with automation_level.GetVariantEditContext():
+        generate_conveyor(stage, config, "inbound")
+        generate_cross_conveyor(stage, config, "cross")
+        generate_conveyor(stage, config, "outbound")
+
+    automation_level.SetVariantSelection("ConveyorPlusDiverter")
+    with automation_level.GetVariantEditContext():
+        generate_conveyor(stage, config, "outbound")
+        generate_conveyor(stage, config, "inbound")
+        generate_cross_conveyor(stage, config, "cross")
+        diverter_arm(stage, config)
+
+    automation_level.SetVariantSelection(previous)
