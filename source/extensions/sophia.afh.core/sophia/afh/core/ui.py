@@ -12,7 +12,8 @@ class ControlPanel:
             aisle_width = self._aisle_width_option.model.get_item_value_model().get_value_as_int()
             automation_level = self._automation_level_option.model.get_item_value_model().get_value_as_int()
             seed = self._seed_field.model.get_value_as_int()
-            self._controller.start(rate, speed, aisle_width, automation_level, seed)
+            duration = self._duration_slider.model.get_value_as_float()
+            self._controller.start(rate, speed, aisle_width, automation_level, seed, duration)
 
         def on_stop():
             self._controller.stop()
@@ -49,6 +50,9 @@ class ControlPanel:
                 self._status_label = ui.Label("")
                 self._kpi_label = ui.Label("")
                 ui.Button("Generate Layout", clicked_fn = on_generate)
+                ui.Label("Simulation Duration(s):")
+                self._duration_slider = ui.FloatSlider(min = 60, max = 600)
+                self._duration_slider.model.set_value(300)
                 ui.Button("Run", clicked_fn=on_run)
                 ui.Button("Stop", clicked_fn=on_stop)
 
@@ -61,6 +65,7 @@ class ControlPanel:
             self._kpi_timer = 0.0
             kpis = self._controller.get_kpis()
             self._kpi_label.text = "\n".join(f"{k}: {round(v, 2)}" for k, v in kpis.items())
+
 
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._kpi_subscription = stream.create_subscription_to_pop(on_ui_update, name="KPI Display")

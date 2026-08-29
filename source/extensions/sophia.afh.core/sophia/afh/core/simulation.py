@@ -32,11 +32,12 @@ class SimulationController:
         self._arm_timer = 0.0
         self._parcel_assets = ["../Assets/parcels/parcel_small.usd", "../Assets/parcels/parcel_medium.usd", "../Assets/parcels/parcel_large.usd", ]
 
-    def start(self, spawn_rate_per_hour, speed, aisle_width, automation_level, seed):
+    def start(self, spawn_rate_per_hour, speed, aisle_width, automation_level, seed, duration):
         config = load_config()
         self._run_time = 0.0
         self._event_log.reset()
         self._kpis.reset()
+        self._run_duration = duration
         self._completed.clear()
         self._missed.clear()
         self._jammed.clear()
@@ -106,6 +107,10 @@ class SimulationController:
         stage = omni.usd.get_context().get_stage()
         dt = event.payload["dt"]
         self._run_time += dt
+        if self._run_time >= self._run_duration:
+            self.stop()
+            return
+
         joint_prim = stage.GetPrimAtPath(self._joint_path)
         drive = UsdPhysics.DriveAPI(joint_prim, "linear") if joint_prim.IsValid() else None
         self._time_since_spawn += dt
