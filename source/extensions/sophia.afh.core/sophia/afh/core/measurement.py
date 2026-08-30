@@ -26,6 +26,7 @@ class KPICollector:
     """Collects aggregate KPIs during a simulation run."""
 
     def __init__(self):
+        """Start every counter at zero."""
         self._spawned = 0
         self._completed = 0
         self._fallen = 0
@@ -39,9 +40,15 @@ class KPICollector:
         self._targeted_completed = 0
 
     def record_spawn(self):
+        """Count a parcel entering the system."""
         self._spawned += 1
 
     def record_completion(self, transit_time, was_targeted):
+        """Count a parcel reaching the end of the line.
+
+        transit_time is the seconds it spent travelling. was_targeted says
+        whether the diverter aimed at it, which the success rate depends on.
+        """
         self._completed += 1
         self._transit_total += transit_time
         self._transit_count += 1
@@ -49,25 +56,30 @@ class KPICollector:
             self._targeted_completed += 1
 
     def record_fall(self):
+        """Count a parcel that left the conveyor."""
         self._fallen += 1
 
     def record_missed(self):
+        """Count a parcel that reached the door end without being diverted."""
         self._missed += 1
 
     def record_diverted(self):
+        """Count one extension of the diverter arm."""
         self._diverted += 1
 
     def record_jammed(self):
+        """Count a group of stationary parcels detected as a jam."""
         self._jammed += 1
 
     def record_diverter_travel(self, distance):
+        """Add to the total distance the diverter arm has moved."""
         self._diverter_travel += distance
 
     def record_targeted(self):
         """Count a parcel the diverter selected for diversion."""
         self._targeted += 1
 
-    def get_KPI(self):
+    def get_kpis(self):
         """Return all KPIs as a dictionary."""
         read = {
             "Parcels Spawned": self._spawned,
@@ -80,7 +92,6 @@ class KPICollector:
             "Average Transit Time": self._transit_total / self._transit_count if self._transit_count else 0.0,
             "Diverter Travel": self._diverter_travel
         }
-
         return read
 
     def reset(self):
@@ -98,11 +109,17 @@ class KPICollector:
         self._targeted_completed = 0
 
 def export_run(scenario_name, parameters, kpis, events, output_dir):
+    """Write one run's results to two CSV files and return their paths.
+
+    The results file lists the scenario name, every input parameter and every
+    KPI, one per row, so it stays readable in a text editor. The events file
+    has one row per failure or completion.
+    """
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    os.makedirs(output_dir, exist_ok = True)
+    os.makedirs(output_dir, exist_ok =True)
     results_path = os.path.join(output_dir, f"{scenario_name}_{stamp}_results.csv")
     events_path = os.path.join(output_dir, f"{scenario_name}_{stamp}_events.csv")
-    with open(results_path, "w", newline = "") as f:
+    with open(results_path, "w", newline ="") as f:
         writer = csv.writer(f)
         writer.writerow(["Scenario", scenario_name])
         for key, value in parameters.items():

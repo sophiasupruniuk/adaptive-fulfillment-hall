@@ -11,7 +11,10 @@ from .scene_generation import (
 )
 
 class SimulationController:
+    """Runs the parcel simulation and collects results from it."""
+
     def __init__(self):
+        """Set up the counters and state a run needs, before any run starts."""
         self._time_since_spawn = 0.0
         self._spawn_rate_per_hour = 600
         self._subscription = None
@@ -31,10 +34,19 @@ class SimulationController:
         self._targeted = set()
         self._arm_state = "home"
         self._arm_timer = 0.0
-        self._parcel_assets = ["../Assets/parcels/parcel_small.usd", "../Assets/parcels/parcel_medium.usd", "../Assets/parcels/parcel_large.usd", ]
+        self._parcel_assets = ["../Assets/parcels/parcel_small.usd",
+                               "../Assets/parcels/parcel_medium.usd",
+                               "../Assets/parcels/parcel_large.usd", ]
         self._parameters = {}
 
     def start(self, spawn_rate_per_hour, speed, aisle_width, automation_level, seed, duration, scenario_name):
+        """Apply the scenario settings and begin a run.
+
+        The variant selections and conveyor speeds are written into the
+        scenario override layer, which is then saved under the scenario's name
+        so the run can be reproduced. All counters are cleared, the random seed
+        is set, and a per-frame callback drives the run from here.
+        """
         config = load_config()
         stage = omni.usd.get_context().get_stage()
 
@@ -93,9 +105,8 @@ class SimulationController:
         self._parcel_state.clear()
         self._targeted.clear()
         self._spawn_rate_per_hour = spawn_rate_per_hour
-        self._centreline_x = config["conveyor"]["outbound"]["centreline_x_m"]
+        self._outbound_x = config["conveyor"]["outbound"]["centreline_x_m"]
         self._inbound_x = config["conveyor"]["inbound"]["centreline_x_m"]
-        self._midpoint_x = (self._inbound_x + self._centreline_x) / 2
         self._belt_width = config["conveyor"]["belt_width_m"]
         self._belt_height = config["conveyor"]["belt_height_m"]
         self._drop_height = config["spawn"]["drop_height_m"]
@@ -103,7 +114,7 @@ class SimulationController:
         self._outbound_end = config["conveyor"]["outbound"]["end_y_m"]
         self._wind_down = config["spawn"]["wind_down_s"]
         self._spawn_point = Gf.Vec3d(
-            self._centreline_x - config["spawn"]["start_offset_x"],
+            self._outbound_x - config["spawn"]["start_offset_x"],
             config["conveyor"]["outbound"]["start_y_m"] - config["spawn"]["start_offset_y"],
             self._belt_height + self._drop_height,
         )
@@ -119,6 +130,7 @@ class SimulationController:
         self._subscription = stream.create_subscription_to_pop(self._on_update, name="Parcel Spawner")
 
     def stop(self):
+        """End the run and remove any parcels still in the scene."""
         self._subscription = None
         stage = omni.usd.get_context().get_stage()
         if stage is None:
@@ -127,10 +139,9 @@ class SimulationController:
         if parcels.IsValid():
             stage.RemovePrim("/World/Parcel")
 
-
     def get_kpis(self):
         """Return the current KPI values."""
-        return self._kpis.get_KPI()
+        return self._kpis.get_kpis()
 
     def export(self, scenario_name):
         """Write the run's parameters, KPIs and events to CSV."""
@@ -138,12 +149,17 @@ class SimulationController:
         return export_run(
             scenario_name,
             self._parameters,
-            self._kpis.get_KPI(),
+            self._kpis.get_kpis(),
             self._event_log.get_events(),
             output_dir,
         )
 
     def generate(self, row_count, aisle_width, automation_level):
+        """Build the layout and equipment, then select the chosen variants.
+
+        Returns a list of messages from the layout generator: a refusal if the
+        row count cannot fit, or a note if one variant had to be capped.
+        """
         stage = omni.usd.get_context().get_stage()
         if stage is None:
             return ["Stage not opened"]
@@ -160,6 +176,12 @@ class SimulationController:
         return errors
 
     def _on_update(self, event):
+        """Advance the simulation by one frame.
+
+        Spawns parcels at the configured rate, drives the diverter arm, tracks
+        each parcel's position, removes parcels that have finished or fallen,
+        and looks for groups of stationary parcels that count as a jam.
+        """
         stage = omni.usd.get_context().get_stage()
         dt = event.payload["dt"]
         self._run_time += dt
@@ -229,10 +251,10 @@ class SimulationController:
                         abs(self._extended_position - self._retracted_position)
                     )
 
-        get_parcel_path = stage.GetPrimAtPath("/World/Parcel")
-        if not get_parcel_path.IsValid():
+        parcel_group = stage.GetPrimAtPath("/World/Parcel")
+        if not parcel_group.IsValid():
             return
-        parcel_children = get_parcel_path.GetChildren()
+        parcel_children = parcel_group.GetChildren()
 
         to_remove = []
 
@@ -299,6 +321,11 @@ class SimulationController:
                     self._kpis.record_jammed()
 
     def _apply_conveyor_speed(self, speed):
+        """Set every conveyor segment's surface velocity from the config.
+
+        Each run has its own direction, and the velocity is set in world space
+        so a rotated run still moves parcels the way the config says.
+        """
         stage = omni.usd.get_context().get_stage()
         config = load_config()
         unit = {"+y": (0, 1, 0), "-y": (0, -1, 0), "+x": (1, 0, 0), "-x": (-1, 0, 0)}
@@ -317,12 +344,14 @@ class SimulationController:
                 velocity_api.CreateSurfaceVelocityLocalSpaceAttr().Set(False)
 
     def _apply_aisle_width(self, aisle_width):
+        """Select the narrow or wide rack layout."""
         stage = omni.usd.get_context().get_stage()
         aisle_prim = stage.GetPrimAtPath("/World/Layout")
         names = ["Narrow", "Wide"]
         aisle_prim.GetVariantSet("AisleWidth").SetVariantSelection(names[aisle_width])
 
     def _apply_automation_level(self, automation_level):
+        """Select which conveyor equipment is present."""
         stage = omni.usd.get_context().get_stage()
         automation_prim = stage.GetPrimAtPath("/World/Layout")
         names = ["Manual", "Conveyor", "ConveyorPlusDiverter"]

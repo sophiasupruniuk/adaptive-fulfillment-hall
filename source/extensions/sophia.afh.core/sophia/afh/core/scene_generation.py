@@ -1,22 +1,28 @@
 import json
 import os
 from pxr import UsdGeom, Gf, UsdPhysics, PhysxSchema
-import omni
 
 config_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "warehouse_config.json")
 
 def load_config():
+    """Read the warehouse layout configuration from disk."""
     with open(config_path) as f:
         return json.load(f)
 
 def generate_layout(stage, config, row_count):
+    """Fill both aisle-width variants with rack rows.
+
+    Each variant gets as many rows as its aisle width allows, up to row_count.
+    Returns a list of messages: a refusal if even narrow aisles cannot fit the
+    request, or a note if wide aisles had to be capped. An empty list means
+    both variants got the full count.
+    """
     length = config["hall"]["interior_max_y_m"] - config["hall"]["interior_min_y_m"]
     bay_depth = config["rack"]["bay_depth_m"]
     narrow_w = config["aisle"]["narrow_m"]
     wide_w = config["aisle"]["wide_m"]
     def max_rows(aisle_w):
         return int((length - aisle_w) / (bay_depth + aisle_w))
-
 
     errors = []
 
@@ -33,23 +39,29 @@ def generate_layout(stage, config, row_count):
     previous = aisle.GetVariantSelection()
     aisle.SetVariantSelection("Narrow")
     with aisle.GetVariantEditContext():
-        generate_racks(stage, config, config["aisle"]["narrow_m"], min(row_count, max_rows(narrow_w)))
+        generate_racks(stage, config, narrow_w, min(row_count, max_rows(narrow_w)))
     aisle.SetVariantSelection("Wide")
     with aisle.GetVariantEditContext():
-        generate_racks(stage, config, config["aisle"]["wide_m"], min(row_count, max_rows(wide_w)))
+        generate_racks(stage, config, wide_w, min(row_count, max_rows(wide_w)))
 
     wide_max = max_rows(wide_w)
     if row_count > wide_max:
-        required = wide_w + row_count * (bay_depth + wide_w)
         errors.append(
-            f"Wide aisles capped at {wide_max} rows: "
-            f"{row_count} rows would need {required:.1f} m of {length:.1f} m."
+            f"Narrow: {min(row_count, max_rows(narrow_w))} rows. "
+            f"Wide: capped at {wide_max} rows "
+            f"({row_count} would need {wide_w + row_count * (bay_depth + wide_w):.1f} m of {length:.1f} m)."
         )
 
     aisle.SetVariantSelection(previous)
     return errors
 
 def generate_racks(stage, config, aisle_width_m, row_count):
+    """Build one set of rack rows at the given aisle spacing.
+
+    Rows run along X across the storage band and are spaced along Y. Each bay
+    is rotated 90 degrees because the rack asset is modelled with its width
+    along Y.
+    """
     interior_min_y_m = config["hall"]["interior_min_y_m"]
     bay_depth_m = config["rack"]["bay_depth_m"]
     storage_start_x_m = config["bands"]["storage_start_x_m"]
@@ -73,6 +85,7 @@ def generate_racks(stage, config, aisle_width_m, row_count):
             UsdGeom.Xformable(rack_prim).AddRotateZOp().Set(-90)
 
 def generate_conveyor(stage, config, run_name):
+    """Build one straight conveyor run from its entry in the config."""
     start_y_m = config["conveyor"][run_name]["start_y_m"]
     end_y_m = config["conveyor"][run_name]["end_y_m"]
     segment_length_m = config["conveyor"]["segment_length_m"]
@@ -90,6 +103,11 @@ def generate_conveyor(stage, config, run_name):
         UsdGeom.Xformable(conveyor_prim).AddTranslateOp().Set(Gf.Vec3d(x_position, y_position, 0))
 
 def generate_cross_conveyor(stage, config, run_name):
+    """Build the short conveyor that carries diverted parcels across.
+
+    It is rotated 90 degrees, so its surface velocity is set to world space —
+    left in local space it would move parcels along the wrong axis.
+    """
     centreline_y_m = config["conveyor"]["cross"]["centreline_y_m"]
     start_x_m = config["conveyor"]["cross"]["start_x_m"]
     end_x_m = config["conveyor"]["cross"]["end_x_m"]
@@ -99,13 +117,18 @@ def generate_cross_conveyor(stage, config, run_name):
 
     cross_conveyor_prim = stage.DefinePrim(f"/World/Layout/Conveyor/{run_name}/cross_segment", "Xform")
     payloads = cross_conveyor_prim.GetPayloads()
-    payloads.AddPayload(assetPath = "../Assets/conveyor_modules/conveyor_module_straight.usd")
+    payloads.AddPayload(assetPath="../Assets/conveyor_modules/conveyor_module_straight.usd")
     UsdGeom.Xformable(cross_conveyor_prim).AddTranslateOp().Set(Gf.Vec3d(x_position, y_position, 0))
     UsdGeom.Xformable(cross_conveyor_prim).AddRotateZOp().Set(-90)
     velocity_api = PhysxSchema.PhysxSurfaceVelocityAPI(cross_conveyor_prim)
     velocity_api.CreateSurfaceVelocityLocalSpaceAttr().Set(False)
 
 def diverter_arm(stage, config):
+    """Place the diverter arm and the trigger volume that fires it.
+
+    The trigger sits a fixed distance upstream of the arm; how long the arm
+    waits before extending is worked out at run time from the belt speed.
+    """
     position_x_m = config["diverter"]["position_x_m"]
     position_y_m = config["diverter"]["position_y_m"]
     position_z_m = config["conveyor"]["belt_height_m"] + config["diverter"]["height_offset_m"]
@@ -141,6 +164,13 @@ def diverter_arm(stage, config):
     PhysxSchema.PhysxTriggerStateAPI.Apply(trigger_prim)
 
 def generate_automation(stage, config):
+    """Fill each automation-level variant with its equipment.
+
+    Manual gets nothing, Conveyor gets the three runs, and ConveyorPlusDiverter
+    adds the arm. The conveyor branch is cleared inside each variant before
+    building, because a removal authored in one variant does not reach prims
+    authored in another.
+    """
     layout = stage.GetPrimAtPath("/World/Layout")
     automation_level = layout.GetVariantSet("AutomationLevel")
 
