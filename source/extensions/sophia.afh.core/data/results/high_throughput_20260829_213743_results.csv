@@ -1,0 +1,18 @@
+Scenario,high_throughput
+Arrival Rate (per hour),1200
+Conveyor Speed (m/s),1.6
+Aisle Width,Wide
+Automation Level,ConveyorPlusDiverter
+Random Seed,22
+Run Duration (s),600.0
+Spawn Window (s),510.0
+Storage Positions,120
+Parcels Spawned,169
+Successful Transit,89
+Fallen,19
+Missed,61
+Diverted,110
+Diversion Success Rate,0.8090909090909091
+Jammed,0
+Average Transit Time,53.01866898876426
+Diverter Travel,131.99999999999946

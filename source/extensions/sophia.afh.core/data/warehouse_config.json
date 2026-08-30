@@ -34,7 +34,7 @@
     "belt_height_m": 0.8,
     "belt_width_m": 0.75,
     "segment_length_m": 2.0,
-    "parcel_speed_ratio": 0.485,
+    "parcel_speed_ratio": 0.47,
 
     "inbound": {
       "centreline_x_m": 10.25,
@@ -70,7 +70,7 @@
     "trigger_height_m": 0.4,
     "retracted_position_m": -0.6,
     "arm_travel_time_s": 0.0,
-    "dwell_time_s": 0.2,
+    "dwell_time_s": 0.18,
     "extended_position_m": 0.0,
     "height_offset_m": -0.05,
     "slippage_time_s": 0.217
@@ -86,6 +86,7 @@
   "spawn": {
     "drop_height_m": 1.2,
     "start_offset_y": 1,
-    "start_offset_x": 0.1
+    "start_offset_x": 0.1,
+    "wind_down_s": 90.0
   }
 }

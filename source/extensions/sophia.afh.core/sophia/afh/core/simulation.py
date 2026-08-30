@@ -78,6 +78,7 @@ class SimulationController:
             "Automation Level": ["Manual", "Conveyor", "ConveyorPlusDiverter"][automation_level],
             "Random Seed": seed,
             "Run Duration (s)": round(duration, 1),
+            "Spawn Window (s)": round(duration - config["spawn"]["wind_down_s"], 1),
             "Storage Positions": rows * bays * levels,
         }
         self._run_time = 0.0
@@ -100,6 +101,7 @@ class SimulationController:
         self._drop_height = config["spawn"]["drop_height_m"]
         self._inbound_end = config["conveyor"]["inbound"]["start_y_m"]
         self._outbound_end = config["conveyor"]["outbound"]["end_y_m"]
+        self._wind_down = config["spawn"]["wind_down_s"]
         self._spawn_point = Gf.Vec3d(
             self._centreline_x - config["spawn"]["start_offset_x"],
             config["conveyor"]["outbound"]["start_y_m"] - config["spawn"]["start_offset_y"],
@@ -170,7 +172,7 @@ class SimulationController:
         self._time_since_spawn += dt
         spawn_interval = 3600.0 / self._spawn_rate_per_hour
 
-        if self._time_since_spawn >= spawn_interval:
+        if self._time_since_spawn >= spawn_interval and self._run_time < (self._run_duration - self._wind_down):
             self._parcel_count += 1
             parcel = stage.DefinePrim(f"/World/Parcel/Parcel_{self._parcel_count:02d}", "Xform")
             payload = parcel.GetPayloads()
