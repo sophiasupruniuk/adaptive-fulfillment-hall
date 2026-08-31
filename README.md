@@ -1,304 +1,204 @@
-# Omniverse Kit App Template
+# Adaptive Fulfillment Hall
 
-<p align="center">
-  <img src="readme-assets/kit_app_template_banner.png" width=100% />
-</p>
+A warehouse digital twin built in NVIDIA Omniverse Kit. The scene is a 27 × 42 m
+fulfillment hall with a rack storage area and a conveyor sortation loop. Parcels
+arrive on one conveyor run, a diverter arm pushes selected ones across to a
+second run, and the rest continue to the door end. A control panel sets the
+layout and run parameters, shows live KPIs, and writes results to CSV.
 
-## :memo: Feature Branch Information
-**This repository is based on a Feature Branch of the Omniverse Kit SDK.** Feature Branches are regularly updated and best suited for testing and prototyping.
-For stable, production-oriented development, please use the [Production Branch of the Kit SDK on NVIDIA GPU Cloud (NGC)](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/omniverse/collections/omniverse_26h1).
+The layout is generated from a configuration file rather than placed by hand,
+and two switches — aisle width and automation level — change the scene through
+USD variants.
 
-[Omniverse Release Information](https://docs.omniverse.nvidia.com/dev-overview/latest/omniverse-releases.html#)
+---
 
+## Before you start
 
-## Overview
+You need:
 
-Welcome to `kit-app-template`, a toolkit designed for developers interested in GPU-accelerated application development within the NVIDIA Omniverse ecosystem. This repository offers streamlined tools and templates to simplify creating high-performance, OpenUSD-based desktop or cloud streaming applications using the Omniverse Kit SDK.
+- A Windows machine with an RTX GPU
+- Git
+- The repository cloned to a path with no spaces in it
 
-### About Omniverse Kit SDK
+Nothing else has to be installed first. The build step downloads the Kit SDK and
+everything else it needs.
 
-The Omniverse Kit SDK enables developers to build immersive 3D applications. Key features include:
-- **Language Support:** Develop with either Python or C++, offering flexibility for various developer preferences.
-- **OpenUSD Foundation:** Utilize the robust Open Universal Scene Description (OpenUSD) for creating, manipulating, and rendering rich 3D content.
-- **GPU Acceleration:** Leverage GPU-accelerated capabilities for high-fidelity visualization and simulation.
-- **Extensibility:** Create specialized extensions that provide dynamic user interfaces, integrate with various systems, and offer direct control over OpenUSD data, making the Omniverse Kit SDK versatile for numerous applications.
+---
 
-### Applications and Use Cases
+## Getting it running
 
-The `kit-app-template` repository enables developers to create cross-platform applications (Windows and Linux) optimized for desktop use and cloud streaming. Potential use cases include designing and simulating expansive virtual environments, producing high-quality synthetic data for AI training, and building advanced tools for technical analysis and insights. Whether you're crafting engaging virtual worlds, developing comprehensive analysis tools, or creating simulations, this repository, along with the Kit SDK, provides the foundational components required to begin development.
+**1. Open a terminal in the repository root.**
 
-### A Deeper Understanding
+That is the folder containing `repo.bat` — `kit-app-template`. Any terminal will
+do: PowerShell, Windows Terminal, or the terminal inside VS Code.
 
-The `kit-app-template` repository is designed to abstract complexity, jumpstarting your development with pre-configured templates, tools, and essential boilerplate. For those seeking a deeper understanding of the application and extension creation process, we have provided the following resources:
+**2. Build.**
 
-#### Companion Tutorial
-
-**[Explore the Kit SDK Companion Tutorial](https://docs.omniverse.nvidia.com/kit/docs/kit-app-template/latest/docs/intro.html)**: This tutorial offers detailed insights into the underlying structure and mechanisms, providing a thorough grasp of both the Kit SDK and the development process.
-
-### New Developers
-
-For a beginner-friendly introduction to application development using the Omniverse Kit SDK, see the NVIDIA DLI course:
-
-#### Beginner Tutorial
-
-**[Developing an Omniverse Kit-Based Application](https://learn.nvidia.com/courses/course-detail?course_id=course-v1:DLI+S-OV-11+V1)**: This course offers an accessible introduction to application development (account and login required).
-
-These resources empower developers at all experience levels to fully utilize the `kit-app-template` repository and the Omniverse Kit SDK.
-
-## Table of Contents
-- [Overview](#overview)
-- [Prerequisites and Environment Setup](#prerequisites-and-environment-setup)
-- [Repository Structure](#repository-structure)
-- [Quick Start](#quick-start)
-- [Templates](#templates)
-    - [Applications](#applications)
-    - [Extensions](#extensions)
-- [Tools](#tools)
-- [License](#license)
-- [Additional Resources](#additional-resources)
-- [Contributing](#contributing)
-
-## Prerequisites and Environment Setup
-
-Ensure your system is set up with the following to work with Omniverse Applications and Extensions:
-
-- **Operating System**: Windows 10/11 or Linux (Ubuntu 22.04 or newer)
-
-- **GPU**: NVIDIA RTX capable GPU (RTX 3070 or Better recommended)
-
-- **Driver**: Minimum and recommended - This update requires driver version >=550.54.15 (Linux) or >=551.78 (Windows). Please verify your driver versions before upgrading. Newer versions may work but are not equally validated.
-
-- **Internet Access**: Required for downloading the Omniverse Kit SDK, extensions, and tools.
-
-### Required Software Dependencies
-
-- [**Git**](https://git-scm.com/downloads): For version control and repository management
-
-- **(Windows - C++ Only) Microsoft Visual Studio (2019 or 2022)**: You can install the latest version from [Visual Studio Downloads](https://visualstudio.microsoft.com/downloads/). Ensure that the **Desktop development with C++** workload is selected.  [Additional information on Windows development configuration](readme-assets/additional-docs/windows_developer_configuration.md)
-
-- **(Windows - C++ Only) Windows SDK**: Install this alongside MSVC. You can find it as part of the Visual Studio Installer. [Additional information on Windows development configuration](readme-assets/additional-docs/windows_developer_configuration.md)
-
-- **(Linux) build-essentials**: A package that includes `make` and other essential tools for building applications.  For Ubuntu, install with `sudo apt-get install build-essential`
-
-### Recommended Software
-
-- [**(Linux) Docker**](https://docs.docker.com/engine/install/ubuntu/): For containerized development and deployment. **Ensure non-root users have Docker permissions.**
-
-- [**(Linux) NVIDIA Container Toolkit**](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html): For GPU-accelerated containerized development and deployment. **Installation and Configuring Docker steps are required.**
-
-- [**VSCode**](https://code.visualstudio.com/download) (or your preferred IDE): For code editing and development
-
-
-## Repository Structure
-
-| Directory Item   | Purpose                                                    |
-|------------------|------------------------------------------------------------|
-| .vscode          | VS Code configuration details and helper tasks             |
-| readme-assets/   | Images and additional repository documentation             |
-| templates/       | Template Applications and Extensions.                      |
-| tools/           | Tooling settings and repository specific (local) tools     |
-| .editorconfig    | [EditorConfig](https://editorconfig.org/) file.            |
-| .gitattributes   | Git configuration.                                         |
-| .gitignore       | Git configuration.                                         |
-| LICENSE          | License for the repo.                                      |
-| README.md        | Project information.                                       |
-| premake5.lua     | Build configuration - such as what apps to build.          |
-| repo.bat         | Windows repo tool entry point.                             |
-| repo.sh          | Linux repo tool entry point.                               |
-| repo.toml        | Top level configuration of repo tools.                     |
-| repo_tools.toml  | Setup of local, repository specific tools                  |
-
-## Quick Start
-
-This section guides you through creating your first Kit SDK-based Application using the `kit-app-template` repository. For a more comprehensive explanation of functionality previewed here, reference the following [Tutorial](https://docs.omniverse.nvidia.com/kit/docs/kit-app-template/latest/docs/intro.html) for an in-depth exploration.
-
-### 1. Clone the Repository
-
-Begin by cloning the `kit-app-template` to your local workspace:
-
-#### 1a. Clone
-
-```bash
-git clone https://github.com/NVIDIA-Omniverse/kit-app-template.git
+```
+./repo.bat build
 ```
 
-#### 1b. Navigate to Cloned Directory
+The first build downloads dependencies and takes around four minutes. Later
+builds take a few seconds.
 
-```bash
-cd kit-app-template
+**3. Launch.**
+
+```
+./repo.bat launch
 ```
 
-### 2. Create and Configure New Application From Template
+The application opens. It starts with an empty stage.
 
-Run the following command to initiate the configuration wizard:
+**4. Open the scene.**
 
-**Linux:**
-```bash
-./repo.sh template new
+File → Open, then `content/adaptive_fulfillment_hall.usd`.
+
+**5. Find the control panel.**
+
+The extension loads automatically and its window appears in the middle of the
+screen. Drag it to a side dock so it is out of the way of the viewport.
+
+Total time from clone to a running scene is under ten minutes on a machine that
+has not built it before.
+
+---
+
+## Running a scenario
+
+The panel is in three groups, top to bottom: build the layout, run a simulation
+on it, export the results.
+
+**1. Choose the layout.** Set aisle width, automation level and rack rows, then
+press **Generate Layout**. The status line underneath reports what was built,
+or why a row count was refused.
+
+**2. Set the run.** Set arrival rate, conveyor speed, random seed and duration,
+then press **Run**. The KPI display updates once a second. The run stops itself
+when the duration is up, or press **Stop** to end it early.
+
+**3. Export.** Type a scenario name and press **Export Results**. Two CSV files
+are written and the status line shows where they went.
+
+Results are written to:
+
+```
+source/extensions/sophia.afh.core/data/results/
 ```
 
-**Windows:**
-```powershell
-.\repo.bat template new
+Each run produces `<scenario>_<timestamp>_results.csv` with the parameters and
+KPIs, and `<scenario>_<timestamp>_events.csv` with one row per parcel event.
+
+Running also saves a copy of the scenario's override layer to
+`content/Layers/05_<scenario>.usd`, so a scenario's settings can be reproduced
+by copying that file over `05_scenario_overrides.usd`.
+
+---
+
+## The control panel
+
+| Control | What it does | Range |
+|---|---|---|
+| Aisle Width | Narrow or wide rack spacing. Narrow fits more rows. | Narrow / Wide |
+| Automation Level | Which conveyor equipment is present. | Manual / Conveyor / ConveyorPlusDiverter |
+| Rack Rows | How many rack rows to build. Each variant fits as many as its aisle width allows, up to this number. | 4–12 |
+| **Generate Layout** | Builds the racks and equipment from the configuration file. | |
+| Parcel Arrival Rate | How many parcels arrive per hour. | 200–1200 |
+| Conveyor Speed | Belt speed. Parcels travel at roughly half this — see limitations. | 0.5–2.0 m/s |
+| Random Seed | Fixes which parcel sizes arrive in which order. | any whole number |
+| Simulation Duration | How long the run lasts. Spawning stops 90 seconds before the end so parcels in transit can finish. | 60–600 s |
+| **Run** | Applies the run settings and starts the simulation. | |
+| **Stop** | Ends the run and clears parcels from the scene. | |
+| Scenario Name | Names the exported files and the saved override layer. | any text |
+| **Export Results** | Writes the finished run's results and event log. | |
+
+The KPI panel below the buttons shows parcels spawned, completed, fallen,
+missed, diverted, the diversion success rate, jam count, average transit time
+and total diverter travel.
+
+---
+
+## Switching configurations without the panel
+
+Both switches are USD variants, so they work with the extension turned off.
+Select `/World/Layout` in the Stage window and change **AisleWidth** or
+**AutomationLevel** in the Property panel. The racks respace and the conveyor
+equipment appears or disappears immediately.
+
+---
+
+## What is where
+
+```
+content/
+  adaptive_fulfillment_hall.usd   the stage to open
+  Assets/                         the modelled parts: hall, racks, conveyor,
+                                  diverter, parcels
+  Layers/
+    01_geometry.usd               the hall shell
+    02_layout.usd                 everything the generator builds
+    03_physics.usd                gravity and simulation settings
+    04_lighting.usd
+    05_scenario_overrides.usd     written when a run starts
+    05_<scenario>.usd             saved copies, one per scenario run
+
+source/
+  apps/sophia.afh.editor.kit      the application definition
+  extensions/sophia.afh.core/
+    data/warehouse_config.json    every dimension the generator uses
+    data/results/                 exported CSVs
+    sophia/afh/core/
+      extension.py                starts and stops everything
+      ui.py                       the control panel
+      simulation.py               runs the simulation, drives the diverter
+      scene_generation.py         builds the layout from the config
+      measurement.py              KPIs, event log, CSV export
+
+docs/
+  decisions.md                    every technical choice and why
+  comparison.md                   the three scenarios compared
 ```
 
-> **NOTE:** If this is your first time running the `template new` tool, you'll be prompted to accept the Omniverse Licensing Terms.
+All dimensions live in `warehouse_config.json`. No positions are written into
+the Python source, so changing the hall means editing the configuration file and
+pressing Generate again.
 
-Follow the prompt instructions:
-- **? Select what you want to create with arrow keys ↑↓:** Application
-- **? Select desired template with arrow keys ↑↓:** Kit Base Editor
-- **? Enter name of application .kit file [name-spaced, lowercase, alphanumeric]:** [set application name]
-- **? Enter application_display_name:** [set application display name]
-- **? Enter version:** [set application version]
+---
 
-  Application [application name] created successfully in [path to project]/source/apps/[application name]
+## Known limitations
 
-- **? Do you want to add application layers?** No
+**Parcels travel at about half the belt speed.** They slip rather than tracking
+the belt exactly. The ratio was measured at three belt speeds and is used to
+work out when the diverter should fire, but it means the conveyor speed setting
+describes the belt, not the parcels.
 
-#### Explanation of Example Selections
+**The diverter is calibrated for 1.2 m/s.** Above about 1.6 m/s parcels carry
+too much momentum through the transfer and are lost at the cross conveyor. The
+scenario comparison in `docs/comparison.md` measures this.
 
-• **`.kit` file name:** This file defines the application according to Kit SDK guidelines. The file name should be lowercase and alphanumeric to remain compatible with Kit’s conventions.
+**Only medium and large parcels are diverted.** Small parcels slip less and
+arrive ahead of the timing model, so they are not targeted and pass through to
+the door end.
 
-• **display name:** This is the application name users will see. It can be any descriptive text.
+**Repeat runs are not identical.** With a fixed seed the parcel sequence and the
+diverter's decisions repeat exactly, but whether a pushed parcel lands cleanly
+varies by around 3%, because the simulation runs on real frame time rather than
+a fixed step.
 
-• **version:** The version number of the application. While you can use any format, semantic versioning (e.g., 0.1.0) is recommended for clarity and consistency.
+**Storage and sortation do not interact.** Parcels never enter the racks, so
+aisle width changes storage capacity and nothing else.
 
-• **application layers:** These optional layers add functionality for features such as streaming to web browsers. For this quick-start, we skip adding layers, but choosing “yes” would let you enable and configure streaming capabilities.
+**Never more than about twenty parcels are on the line at once.** Parcels are
+removed when they finish, which keeps the frame rate steady. The brief's
+200-parcel test would need them to accumulate instead.
 
-### 3. Build
+**The diverter response delay is not a panel control.** It is derived from belt
+speed and the measured slip. `docs/decisions.md` explains why.
 
-Build your new application with the following command:
+**The dock door mechanism was not built.**
 
+---
 
-**Linux:**
-```bash
-./repo.sh build
-```
-**Windows:**
-```powershell
-.\repo.bat build
- ```
+## Further reading
 
-A successful build will result in the following message:
-
-```text
-BUILD (RELEASE) SUCCEEDED (Took XX.XX seconds)
-```
-
- If you experience issues related to build, please see the [Usage and Troubleshooting](readme-assets/additional-docs/usage_and_troubleshooting.md) section for additional information.
-
-
-### 4. Launch
-
-Initiate your newly created application using:
-
-**Linux:**
-```bash
-./repo.sh launch
-```
-**Windows:**
-```powershell
-.\repo.bat launch
-```
-
-**? Select with arrow keys which App would you like to launch:** [Select the created editor application]
-
-![Kit Base Editor Image](readme-assets/kit_base_editor.png)
-
-
-> **NOTE:** The initial startup may take 5 to 8 minutes as shaders compile for the first time. After initial shader compilation, startup time will reduce dramatically
-
-## Templates
-
-`kit-app-template` features an array of configurable templates for `Extensions` and `Applications`, catering to a range of desired development starting points from minimal to feature rich.
-
-### Applications
-
-Begin constructing Omniverse Applications using these templates
-
-- **[Kit Service](./templates/apps/kit_service)**: The minimal definition of an Omniverse Kit SDK based service. This template is useful for creating headless services leveraging Omniverse Kit functionality.
-
-- **[Kit Base Editor](./templates/apps/kit_base_editor/)**: A minimal template application for loading, manipulating and rendering OpenUSD content from a graphical interface.
-
-- **[USD Composer](./templates/apps/usd_composer)**: A template application for authoring complex OpenUSD scenes, such as configurators.
-
-- **[USD Explorer](./templates/apps/usd_explorer)**: A template application for exploring and collaborating on large Open USD scenes.
-
-- **[USD Viewer](./templates/apps/usd_viewer)**: A viewport-only template application that can be easily streamed and interacted with remotely, well-suited for streaming content to web pages.
-
-### Extensions
-
-Enhance Omniverse capabilities with extension templates:
-
-- **[Basic Python](./templates/extensions/basic_python)**: The minimal definition of an Omniverse Python Extension.
-
-- **[Python UI](./templates/extensions/python_ui)**: An extension that provides an easily extendable Python-based user interface.
-
-- **[Basic C++](./templates/extensions/basic_cpp)**: The minimal definition of an Omniverse C++ Extension.
-
-- **[Basic C++ w/ Python Bindings](./templates/extensions/basic_python_binding)**: The minimal definition of an Omniverse C++ Extension that also exposes a Python interface via Pybind11.
-
-   **Note for Windows C++ Developers** : This template requires `"platform:windows-x86_64".enabled` and `link_host_toolchain` within the `repo.toml` file be set to `true`. For additional C++ configuration information [see here](readme-assets/additional-docs/windows_developer_configuration.md).
-
-
-## Application Streaming
-
-The Omniverse Platform supports streaming Kit-based applications directly to a web browser. You can either manage your own deployment or use an NVIDIA-managed service:
-
-### Self-Managed
-- **Omniverse Kit App Streaming :** A reference implementation on GPU-enabled Kubernetes clusters for complete control over infrastructure and scalability.
-
-### NVIDIA-Managed
-- **NVIDIA Cloud Functions (NVCF):** Offloads hardware, streaming, and network complexities for secure, large scale deployments.
-
-[Configuring and packaging streaming-ready Kit applications](readme-assets/additional-docs/kit_app_streaming_config.md)
-
-### Deploying to NVIDIA DGX Cloud (DGXC)
-
-> ⚠️ **Planning to deploy on DGX Cloud?**
-> Applications deployed on NVIDIA DGX Cloud via NVCF need NVCF-compatible streaming configuration. The **NVCF Streaming** layer provides this out of the box, or you can create your own custom layer. Add layers during `template new` or later with `./repo.sh template modify` (Linux) or `.\repo.bat template modify` (Windows). Standard streaming configurations are not DGXC-compatible.
-
-See the [DGXC Deployment Guide](readme-assets/additional-docs/dgxc_nvcf_deployment.md) for configuration details and the [public DGXC documentation](https://docs.omniverse.nvidia.com/omniverse-dgxc/latest/) for deployment steps.
-
-
-## Tools
-
-The Kit SDK includes a suite of tools to aid in the development, testing, and deployment of your projects. For a more detailed overview of available tooling, see the [Kit SDK Tooling Guide](readme-assets/additional-docs/kit_app_template_tooling_guide.md).
-
-Here's a brief overview of some key tools:
-
-- **Help (`./repo.sh -h` or `.\repo.bat -h`):** Provides a list of available tools and their descriptions.
-
-- **Template Creation (`./repo.sh template` or `.\repo.bat template`):** Assists in starting a new project by generating a scaffold from a template application or extension.
-
-- **Build (`./repo.sh build` or `.\repo.bat build`):** Compiles your applications and extensions, preparing them for launch.
-
-- **Launch (`./repo.sh launch`or`.\repo.bat launch`):** Starts your compiled application or extension.
-
-- **Testing (`./repo.sh test` or `.\repo.bat test`):** Facilitates the execution of test suites for your extensions, ensuring code quality and functionality. See [Testing Applications and Extensions](readme-assets/additional-docs/testing_apps_and_extensions.md) for a detailed guide.
-
-- **Packaging (`./repo.sh package` or `.\repo.bat package`):** Aids in packaging your application for distribution, making it easier to share or deploy in cloud environments.
-
-## Governing Terms
-The software and materials are governed by the [NVIDIA Software License Agreement](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-software-license-agreement/) and the [Product-Specific Terms for NVIDIA Omniverse](https://www.nvidia.com/en-us/agreements/enterprise-software/product-specific-terms-for-omniverse/).
-
-## Data Collection
-The Omniverse Kit SDK collects anonymous usage data to help improve software performance and aid in diagnostic purposes. Rest assured, no personal information such as user email, name or any other field is collected.
-
-To learn more about what data is collected, how we use it and how you can change the data collection setting [see details page](readme-assets/additional-docs/data_collection_and_use.md).
-
-
-## Additional Resources
-
-- [Kit SDK Companion Tutorial](https://docs.omniverse.nvidia.com/kit/docs/kit-app-template/latest/docs/intro.html)
-
-- [Usage and Troubleshooting](readme-assets/additional-docs/usage_and_troubleshooting.md)
-
-- [Developer Bundle Extensions](readme-assets/additional-docs/developer_bundle_extensions.md)
-
-- [Omniverse Kit SDK Manual](https://docs.omniverse.nvidia.com/kit/docs/kit-manual/latest/index.html)
-
-
-## Contributing
-
-We provide this source code as-is and are currently not accepting outside contributions.
+- `docs/decisions.md` — every technical choice and the reasoning behind it
+- `docs/comparison.md` — the three scenarios compared, with a recommendation
