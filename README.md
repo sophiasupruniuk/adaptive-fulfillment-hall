@@ -72,6 +72,11 @@ on it, export the results.
 press **Generate Layout**. The status line underneath reports what was built,
 or why a row count was refused.
 
+Choose **ConveyorPlusDiverter** as the automation level if you want parcels to
+be sorted. The other levels build a conveyor with no diverter, or no conveyor at
+all, so every parcel travels to the door end and the diversion KPIs stay at
+zero.
+
 **2. Set the run.** Set arrival rate, conveyor speed, random seed and duration,
 then press **Run**. The KPI display updates once a second. The run stops itself
 when the duration is up, or press **Stop** to end it early.
@@ -99,7 +104,7 @@ by copying that file over `05_scenario_overrides.usd`.
 | Control | What it does | Range |
 |---|---|---|
 | Aisle Width | Narrow or wide rack spacing. Narrow fits more rows. | Narrow / Wide |
-| Automation Level | Which conveyor equipment is present. | Manual / Conveyor / ConveyorPlusDiverter |
+| Automation Level | Which conveyor equipment is present. ConveyorPlusDiverter is the one that sorts parcels. | Manual / Conveyor / ConveyorPlusDiverter |
 | Rack Rows | How many rack rows to build. Each variant fits as many as its aisle width allows, up to this number. | 4–12 |
 | **Generate Layout** | Builds the racks and equipment from the configuration file. | |
 | Parcel Arrival Rate | How many parcels arrive per hour. | 200–1200 |
