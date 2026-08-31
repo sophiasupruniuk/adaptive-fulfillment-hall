@@ -201,6 +201,13 @@ speed and the measured slip. `docs/decisions.md` explains why.
 
 **The dock door mechanism was not built.**
 
+**Two warnings appear in the console and can be ignored.** One mentions
+`conveyor_module_straight.usd` and a bad menu item — a leftover registration
+that does not affect the scene. The other says
+`physxTrigger:triggeredCollisions not found` and appears when the diverter's
+trigger volume is read before the physics engine has populated it, which
+happens on the first frame of a run.
+
 ---
 
 ## Further reading
