@@ -19,7 +19,7 @@ class SimulationController:
         self._spawn_rate_per_hour = 600
         self._subscription = None
         self._parcel_count = 0
-        self._trigger_path = "/World/Layout/Conveyor/Diverter_Trigger"
+        self._trigger_path = "/World/Layout/Conveyor/Diverter_Trigger/mesh_0"
         self._joint_path = "/World/Layout/Conveyor/Diverter/divider_arm/PusherJoint"
         self._run_time = 0.0
         self._event_log = EventLog()

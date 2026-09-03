@@ -132,12 +132,10 @@ def diverter_arm(stage, config):
     position_x_m = config["diverter"]["position_x_m"]
     position_y_m = config["diverter"]["position_y_m"]
     position_z_m = config["conveyor"]["belt_height_m"] + config["diverter"]["height_offset_m"]
-    trigger_depth_m = config["diverter"]["trigger_depth_m"]
     trigger_height_m = config["diverter"]["trigger_height_m"]
     trigger_offset_m = config["diverter"]["trigger_offset_m"]
     trigger_y_m = position_y_m + trigger_offset_m
     centreline_x_m = config["conveyor"]["outbound"]["centreline_x_m"]
-    belt_width_m = config["conveyor"]["belt_width_m"]
     retracted_position_m = config["diverter"]["retracted_position_m"]
 
     diverter_prim = stage.DefinePrim("/World/Layout/Conveyor/Diverter", "Xform")
@@ -149,19 +147,13 @@ def diverter_arm(stage, config):
         drive = UsdPhysics.DriveAPI(joint_prim, "linear")
         drive.CreateTargetPositionAttr().Set(retracted_position_m)
 
-    trigger = UsdGeom.Cube.Define(stage, "/World/Layout/Conveyor/Diverter_Trigger")
+    trigger = stage.DefinePrim("/World/Layout/Conveyor/Diverter_Trigger", "Xform")
+    payload = trigger.GetPayloads()
+    payload.AddPayload(assetPath="../Assets/trigger_poles.usd")
     xform = UsdGeom.Xformable(trigger)
-    xform.AddTranslateOp().Set(Gf.Vec3d(centreline_x_m, trigger_y_m, position_z_m + trigger_height_m / 2.0))
-    xform.AddScaleOp().Set(Gf.Vec3f(
-        belt_width_m / 2.0,
-        trigger_depth_m / 2.0,
-        trigger_height_m / 2.0
-    ))
+    xform.AddTranslateOp().Set(Gf.Vec3d(centreline_x_m, trigger_y_m, trigger_height_m))
+    UsdGeom.Xformable(trigger).AddRotateZOp().Set(-90)
 
-    trigger_prim = trigger.GetPrim()
-    UsdPhysics.CollisionAPI.Apply(trigger_prim)
-    PhysxSchema.PhysxTriggerAPI.Apply(trigger_prim)
-    PhysxSchema.PhysxTriggerStateAPI.Apply(trigger_prim)
 
 def generate_automation(stage, config):
     """Fill each automation-level variant with its equipment.
