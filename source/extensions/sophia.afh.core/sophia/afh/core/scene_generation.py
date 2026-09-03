@@ -188,3 +188,34 @@ def generate_automation(stage, config):
         diverter_arm(stage, config)
 
     automation_level.SetVariantSelection(previous)
+
+def bay_position(config, aisle_width_m, index):
+    """Return the world position of a storage slot, by index.
+
+    Slots are numbered along each row, level by level, then row by row.
+    The arithmetic mirrors generate_racks so a slot lands inside a bay."""
+    interior_min_y_m = config["hall"]["interior_min_y_m"]
+    bay_depth_m = config["rack"]["bay_depth_m"]
+    bay_width_m = config["rack"]["bay_width_m"]
+    shelf_spacing_m = config["rack"]["shelf_spacing_m"]
+    levels = config["rack"]["levels_per_bay"]
+    storage_start_x_m = config["bands"]["storage_start_x_m"]
+    storage_end_x_m = config["bands"]["storage_end_x_m"]
+    lowest_shelf_m = config["rack"]["lowest_shelf_height_m"]
+    inset_x_m = config["rack"]["slot_inset_x_m"]
+    inset_y_m = config["rack"]["slot_inset_y_m"]
+
+    bays_per_row = int((storage_end_x_m - storage_start_x_m) / bay_width_m)
+    row_x = storage_end_x_m - bays_per_row * bay_width_m
+
+    slots_per_row = bays_per_row * levels
+    row = index // slots_per_row
+    remainder = index % slots_per_row
+    bay = remainder // levels
+    level = remainder % levels
+
+    x = row_x + bay * bay_width_m + bay_width_m / 2 - inset_x_m
+    y = interior_min_y_m + aisle_width_m + row * (bay_depth_m + aisle_width_m) - bay_depth_m / 2 - inset_y_m
+    z = lowest_shelf_m + level * shelf_spacing_m
+
+    return Gf.Vec3d(x, y, z)

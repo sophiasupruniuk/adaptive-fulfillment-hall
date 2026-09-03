@@ -21,7 +21,11 @@
     "bay_width_m": 2.7,
     "bay_depth_m": 1.2,
     "bay_height_m": 6.0,
-    "levels_per_bay": 3
+    "levels_per_bay": 4,
+    "lowest_shelf_height_m": 1.1,
+    "shelf_spacing_m": 1.6,
+    "slot_inset_x_m": 0.075,
+    "slot_inset_y_m": 0.10
   },
 
   "aisle": {
