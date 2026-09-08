@@ -30,23 +30,31 @@ create_physics_scene(stage)
 create_ground_plane(stage)
 
 segments = [
-    {"name": "Base", "length": 0.2, "radius": 0.3, "pivot_name": "base_pivot", "shape": "cylinder", "mass": 50.0},
-    {"name": "UpperArm", "length": 0.8, "radius": 0.08, "shape": "cylinder", "pivot_name": "Shoulder", "mass": 20.0},
-    {"name": "Forearm", "length": 0.6, "radius": 0.06, "shape": "cylinder", "pivot_name": "Elbow", "mass": 15.0},
-    {"name": "Gripper", "length": 0.15, "shape": "cube", "pivot_name": "Wrist", "mass": 5.0},
+    {"name": "Base", "length": 0.2, "radius": 0.3, "pivot_name": "base_pivot", "shape": "cylinder", "mass": 8.0},
+    {"name": "UpperArm", "length": 0.8, "radius": 0.08, "shape": "cylinder", "pivot_name": "Shoulder", "mass": 8.0, "stiffness": 100000.0, "damping": 10000.0, "max_force": 100000.0},
+    {"name": "Forearm", "length": 0.6, "radius": 0.06, "shape": "cylinder", "pivot_name": "Elbow", "mass": 4.0, "stiffness":  50000.0, "damping":  5000.0, "max_force":  50000.0},
+    {"name": "Gripper", "length": 0.15, "shape": "cube", "pivot_name": "Wrist", "mass": 1.0, "stiffness":  10000.0, "damping":  1000.0, "max_force":  10000.0},
 ]
+
+poses = {
+    "home":   {"Shoulder":  0.0, "Elbow":   0.0, "Wrist":  0.0},
+    "reach":  {"Shoulder": 45.0, "Elbow": 30.0, "Wrist": 15.0},
+    "lifted": {"Shoulder": 20.0, "Elbow": 30.0, "Wrist": 15.0},
+}
 
 def create_robot_arm(stage, segments, root_path):
     if stage.GetPrimAtPath(root_path):
         stage.RemovePrim(root_path)
 
-    UsdGeom.Xform.Define(stage, root_path)
+    robot_prim = UsdGeom.Xform.Define(stage, root_path)
+    UsdPhysics.ArticulationRootAPI.Apply(robot_prim.GetPrim())
 
     joints_scope = UsdGeom.Scope.Define(stage, f"{root_path}/Joints")
     previous = None
 
     z_offset = 0
     bodies = {}
+    joints = {}
 
     for segment in segments:
         body_path = f"{root_path}/{segment['name']}"
@@ -60,6 +68,9 @@ def create_robot_arm(stage, segments, root_path):
             tube.GetHeightAttr().Set(segment["length"])
             tube.GetRadiusAttr().Set(segment["radius"])
             UsdPhysics.CollisionAPI.Apply(tube.GetPrim())
+            sphere = UsdGeom.Sphere.Define(stage, f"{body_path}/Sphere_prim")
+            sphere.GetRadiusAttr().Set(0.08)
+            sphere.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, segment["length"]/2.0))
 
         elif segment["shape"] == "cube":
             gripper = UsdGeom.Cube.Define(stage, f"{body_path}/Geom")
@@ -74,6 +85,7 @@ def create_robot_arm(stage, segments, root_path):
             weld.CreateBody1Rel().SetTargets([f"{root_path}/Base"])
 
         else:
+            joints[segment["pivot_name"]] = joint_path
             joint = UsdPhysics.RevoluteJoint.Define(stage, joint_path)
             joint.CreateBody0Rel().SetTargets([bodies[previous["name"]]])
             joint.CreateBody1Rel().SetTargets([body_path])
@@ -85,12 +97,53 @@ def create_robot_arm(stage, segments, root_path):
             joint.CreateLowerLimitAttr().Set(-90)
             joint.CreateUpperLimitAttr().Set(90)
 
+            drive = UsdPhysics.DriveAPI.Apply(joint.GetPrim(), "angular")
+            drive.CreateTypeAttr("force")
+            drive.CreateStiffnessAttr().Set(segment["stiffness"])
+            drive.CreateDampingAttr().Set(segment["damping"])
+            drive.CreateMaxForceAttr().Set(segment["max_force"])
+            drive.CreateTargetPositionAttr(0.0)
+
         previous = segment
         z_offset += segment["length"]
 
-    return bodies
+    return bodies, joints
 
-bodies = create_robot_arm(stage, segments, "/World/RobotArm")
-print(bodies)
+bodies, joints = create_robot_arm(stage, segments, "/World/RobotArm")
+print(bodies, joints)
 
 print(stage.GetRootLayer().ExportToString())
+
+class RobotController:
+    def __init__(self, stage, joints, poses):
+        self.stage = stage
+        self.joints = joints
+        self.poses = poses
+
+    def _drive(self, joint_name):
+        prim = self.stage.GetPrimAtPath(self.joints[joint_name])
+        if not prim.IsValid():
+            print("Joint not found")
+            return None
+        return UsdPhysics.DriveAPI.Get(prim, "angular")
+
+    def position(self, pose_name):
+        if pose_name not in self.poses:
+            print(f"Unkown pose:{pose_name}")
+            return None
+
+        for joint_name, angle in self.poses[pose_name].items():
+            drive = self._drive(joint_name)
+            if drive is not None:
+                drive.GetTargetPositionAttr().Set(angle)
+
+cycle = ["home", "reach", "lifted"]
+step_index = 0
+
+def next_step ():
+    robot = RobotController(stage, joints, poses)
+    global step_index
+    pose_name = cycle[step_index]
+    robot.position(pose_name)
+    step_index = (step_index + 1) % len(cycle)
+    print(f"step > {pose_name}")
