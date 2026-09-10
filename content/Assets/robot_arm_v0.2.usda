@@ -7,8 +7,8 @@
                 double radius = 500
             }
             dictionary Perspective = {
-                double3 position = (2.752032858728632, 3.2761715753794, 1.3767699542193057)
-                double3 target = (-1.7489429472085858, -2.0978995213895946, 0.6628526163904223)
+                double3 position = (5.5632243845103435, 6.730213261306033, 2.5298954650026713)
+                double3 target = (-1.8422349025081246, -2.111750443579651, 1.3552866673693897)
             }
             dictionary Right = {
                 double3 position = (0, -500.0000111758711, 0)
@@ -59,89 +59,93 @@ def Xform "World"
         }
     }
 
-    def Xform "RobotArm"
+    def Xform "RobotArm" (
+        prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+    )
     {
         def Scope "Joints"
         {
             def PhysicsFixedJoint "base_pivot"
             {
                 rel physics:body1 = </World/RobotArm/Base>
-                point3f physics:localPos1 = (0, 0, -0.1)
+                point3f physics:localPos1 = (0, 0, -0.15)
                 quatf physics:localRot1 = (1, 0, 0, 0)
             }
 
-            def PhysicsRevoluteJoint "joint1"
+            def PhysicsRevoluteJoint "BaseYaw" (
+                prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+            )
             {
-                uniform token physics:axis = "Y"
+                float drive:angular:physics:damping = 20000
+                float drive:angular:physics:maxForce = 200000
+                float drive:angular:physics:stiffness = 200000
+                float drive:angular:physics:targetPosition = 0
+                uniform token drive:angular:physics:type = "force"
+                uniform token physics:axis = "Z"
                 rel physics:body0 = </World/RobotArm/Base>
-                rel physics:body1 = </World/RobotArm/BallJoint1>
-                point3f physics:localPos0 = (0, 0, 0.1)
-                point3f physics:localPos1 = (0, 0, -0.05)
+                rel physics:body1 = </World/RobotArm/Turntable>
+                point3f physics:localPos0 = (0, 0, 0.15)
+                point3f physics:localPos1 = (0, 0, -0.075)
                 quatf physics:localRot0 = (1, 0, 0, 0)
                 quatf physics:localRot1 = (1, 0, 0, 0)
                 float physics:lowerLimit = -90
                 float physics:upperLimit = 90
             }
 
-            def PhysicsRevoluteJoint "Shoulder"
+            def PhysicsRevoluteJoint "Shoulder" (
+                prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+            )
             {
+                float drive:angular:physics:damping = 20000
+                float drive:angular:physics:maxForce = 200000
+                float drive:angular:physics:stiffness = 200000
+                float drive:angular:physics:targetPosition = 0
+                uniform token drive:angular:physics:type = "force"
                 uniform token physics:axis = "Y"
-                rel physics:body0 = </World/RobotArm/BallJoint1>
+                rel physics:body0 = </World/RobotArm/Turntable>
                 rel physics:body1 = </World/RobotArm/UpperArm>
-                point3f physics:localPos0 = (0, 0, 0.05)
-                point3f physics:localPos1 = (0, 0, -0.4)
+                point3f physics:localPos0 = (0, 0, 0.075)
+                point3f physics:localPos1 = (0, 0, -0.6)
                 quatf physics:localRot0 = (1, 0, 0, 0)
                 quatf physics:localRot1 = (1, 0, 0, 0)
                 float physics:lowerLimit = -90
                 float physics:upperLimit = 90
             }
 
-            def PhysicsRevoluteJoint "joint2"
+            def PhysicsRevoluteJoint "Elbow" (
+                prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+            )
             {
+                float drive:angular:physics:damping = 12000
+                float drive:angular:physics:maxForce = 120000
+                float drive:angular:physics:stiffness = 120000
+                float drive:angular:physics:targetPosition = 0
+                uniform token drive:angular:physics:type = "force"
                 uniform token physics:axis = "Y"
                 rel physics:body0 = </World/RobotArm/UpperArm>
-                rel physics:body1 = </World/RobotArm/BallJoint2>
-                point3f physics:localPos0 = (0, 0, 0.4)
-                point3f physics:localPos1 = (0, 0, -0.05)
-                quatf physics:localRot0 = (1, 0, 0, 0)
-                quatf physics:localRot1 = (1, 0, 0, 0)
-                float physics:lowerLimit = -90
-                float physics:upperLimit = 90
-            }
-
-            def PhysicsRevoluteJoint "Elbow"
-            {
-                uniform token physics:axis = "Y"
-                rel physics:body0 = </World/RobotArm/BallJoint2>
                 rel physics:body1 = </World/RobotArm/Forearm>
-                point3f physics:localPos0 = (0, 0, 0.05)
-                point3f physics:localPos1 = (0, 0, -0.3)
+                point3f physics:localPos0 = (0, 0, 0.6)
+                point3f physics:localPos1 = (0, 0, -0.45)
                 quatf physics:localRot0 = (1, 0, 0, 0)
                 quatf physics:localRot1 = (1, 0, 0, 0)
                 float physics:lowerLimit = -90
                 float physics:upperLimit = 90
             }
 
-            def PhysicsRevoluteJoint "joint3"
+            def PhysicsRevoluteJoint "Wrist" (
+                prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+            )
             {
+                float drive:angular:physics:damping = 4000
+                float drive:angular:physics:maxForce = 40000
+                float drive:angular:physics:stiffness = 40000
+                float drive:angular:physics:targetPosition = 0
+                uniform token drive:angular:physics:type = "force"
                 uniform token physics:axis = "Y"
                 rel physics:body0 = </World/RobotArm/Forearm>
-                rel physics:body1 = </World/RobotArm/BallJoint3>
-                point3f physics:localPos0 = (0, 0, 0.3)
-                point3f physics:localPos1 = (0, 0, -0.04)
-                quatf physics:localRot0 = (1, 0, 0, 0)
-                quatf physics:localRot1 = (1, 0, 0, 0)
-                float physics:lowerLimit = -90
-                float physics:upperLimit = 90
-            }
-
-            def PhysicsRevoluteJoint "Wrist"
-            {
-                uniform token physics:axis = "Y"
-                rel physics:body0 = </World/RobotArm/BallJoint3>
                 rel physics:body1 = </World/RobotArm/Gripper>
-                point3f physics:localPos0 = (0, 0, 0.04)
-                point3f physics:localPos1 = (0, 0, -0.075)
+                point3f physics:localPos0 = (0, 0, 0.45)
+                point3f physics:localPos1 = (0, 0, -0.1)
                 quatf physics:localRot0 = (1, 0, 0, 0)
                 quatf physics:localRot1 = (1, 0, 0, 0)
                 float physics:lowerLimit = -90
@@ -153,32 +157,47 @@ def Xform "World"
             prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
         )
         {
-            float physics:mass = 50
-            double3 xformOp:translate = (0, 0, 0.1)
+            float physics:mass = 30
+            double3 xformOp:translate = (0, 0, 0.15)
             uniform token[] xformOpOrder = ["xformOp:translate"]
 
             def Cylinder "Geom" (
                 prepend apiSchemas = ["PhysicsCollisionAPI"]
             )
             {
-                double height = 0.2
-                double radius = 0.3
+                double height = 0.3
+                double radius = 0.35
+            }
+
+            def Sphere "Sphere_prim"
+            {
+                double radius = 0.08
+                double3 xformOp:translate = (0, 0, 0.15)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
             }
         }
 
-        def Xform "BallJoint1" (
+        def Xform "Turntable" (
             prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
         )
         {
-            float physics:mass = 2
-            double3 xformOp:translate = (0, 0, 0.25)
+            float physics:mass = 8
+            double3 xformOp:translate = (0, 0, 0.375)
             uniform token[] xformOpOrder = ["xformOp:translate"]
 
-            def Sphere "Geom" (
+            def Cylinder "Geom" (
                 prepend apiSchemas = ["PhysicsCollisionAPI"]
             )
             {
-                double radius = 0.1
+                double height = 0.15
+                double radius = 0.3
+            }
+
+            def Sphere "Sphere_prim"
+            {
+                double radius = 0.08
+                double3 xformOp:translate = (0, 0, 0.075)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
             }
         }
 
@@ -186,32 +205,23 @@ def Xform "World"
             prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
         )
         {
-            float physics:mass = 20
-            double3 xformOp:translate = (0, 0, 0.7000000000000001)
+            float physics:mass = 15
+            double3 xformOp:translate = (0, 0, 1.0499999999999998)
             uniform token[] xformOpOrder = ["xformOp:translate"]
 
             def Cylinder "Geom" (
                 prepend apiSchemas = ["PhysicsCollisionAPI"]
             )
             {
-                double height = 0.8
-                double radius = 0.08
-            }
-        }
-
-        def Xform "BallJoint2" (
-            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
-        )
-        {
-            float physics:mass = 2
-            double3 xformOp:translate = (0, 0, 1.1500000000000001)
-            uniform token[] xformOpOrder = ["xformOp:translate"]
-
-            def Sphere "Geom" (
-                prepend apiSchemas = ["PhysicsCollisionAPI"]
-            )
-            {
+                double height = 1.2
                 double radius = 0.1
+            }
+
+            def Sphere "Sphere_prim"
+            {
+                double radius = 0.08
+                double3 xformOp:translate = (0, 0, 0.6)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
             }
         }
 
@@ -219,32 +229,23 @@ def Xform "World"
             prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
         )
         {
-            float physics:mass = 15
-            double3 xformOp:translate = (0, 0, 1.5000000000000002)
+            float physics:mass = 8
+            double3 xformOp:translate = (0, 0, 2.1)
             uniform token[] xformOpOrder = ["xformOp:translate"]
 
             def Cylinder "Geom" (
                 prepend apiSchemas = ["PhysicsCollisionAPI"]
             )
             {
-                double height = 0.6
-                double radius = 0.06
+                double height = 0.9
+                double radius = 0.08
             }
-        }
 
-        def Xform "BallJoint3" (
-            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
-        )
-        {
-            float physics:mass = 2
-            double3 xformOp:translate = (0, 0, 1.8400000000000003)
-            uniform token[] xformOpOrder = ["xformOp:translate"]
-
-            def Sphere "Geom" (
-                prepend apiSchemas = ["PhysicsCollisionAPI"]
-            )
+            def Sphere "Sphere_prim"
             {
                 double radius = 0.08
+                double3 xformOp:translate = (0, 0, 0.45)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
             }
         }
 
@@ -252,15 +253,15 @@ def Xform "World"
             prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
         )
         {
-            float physics:mass = 5
-            double3 xformOp:translate = (0, 0, 1.9550000000000003)
+            float physics:mass = 2
+            double3 xformOp:translate = (0, 0, 2.65)
             uniform token[] xformOpOrder = ["xformOp:translate"]
 
             def Cube "Geom" (
                 prepend apiSchemas = ["PhysicsCollisionAPI"]
             )
             {
-                double size = 0.15
+                double size = 0.2
             }
         }
     }
@@ -384,10 +385,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -7.046211842118625)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -11.593138282522178)
     float3 xformOp:rotateXYZ = (84.18485, -6.9972206e-14, 140.05263)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (2.752032858728632, 3.2761715753794, 1.3767699542193057)
+    double3 xformOp:translate = (5.5632243845103435, 6.730213261306033, 2.5298954650026713)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 

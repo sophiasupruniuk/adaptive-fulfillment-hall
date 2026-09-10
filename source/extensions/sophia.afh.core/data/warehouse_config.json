@@ -56,6 +56,14 @@
       "powered": true
     },
 
+    "pickup_cross": {
+      "centreline_y_m": 5.3,
+      "start_x_m": 7.1,
+      "end_x_m": 11.5,
+      "direction": "+x",
+      "powered": true
+    },
+
     "outbound": {
       "centreline_x_m": 7.5,
       "start_y_m": 41.0,

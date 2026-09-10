@@ -274,10 +274,13 @@ class SimulationController:
                 self._kpis.record_completion(transit, parcel.GetPath() in self._targeted)
                 to_remove.append(parcel.GetPath())
             elif parcel_transform[1] <= self._outbound_end:
-                self._missed.add(parcel.GetPath())
-                self._event_log.record("Missed", self._run_time, parcel_transform)
-                self._kpis.record_missed()
-                to_remove.append(parcel.GetPath())
+                if self._parcel_sizes.get(parcel.GetPath()) == "small":
+                    pass
+                else:
+                    self._missed.add(parcel.GetPath())
+                    self._event_log.record("Missed", self._run_time, parcel_transform)
+                    self._kpis.record_missed()
+                    to_remove.append(parcel.GetPath())
 
             if parcel.GetPath() not in self._parcel_state:
                 self._parcel_state[parcel.GetPath()] = {
@@ -329,7 +332,7 @@ class SimulationController:
         stage = omni.usd.get_context().get_stage()
         config = load_config()
         unit = {"+y": (0, 1, 0), "-y": (0, -1, 0), "+x": (1, 0, 0), "-x": (-1, 0, 0)}
-        for run_name in ["inbound", "outbound", "cross"]:
+        for run_name in ["inbound", "outbound", "cross", "pickup_cross"]:
             direction = config ["conveyor"][run_name]["direction"]
             u = unit[direction]
             velocity = Gf.Vec3f(u[0] * speed, u[1] * speed, u[2] * speed)

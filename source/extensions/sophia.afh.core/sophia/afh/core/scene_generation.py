@@ -103,25 +103,33 @@ def generate_conveyor(stage, config, run_name):
         UsdGeom.Xformable(conveyor_prim).AddTranslateOp().Set(Gf.Vec3d(x_position, y_position, 0))
 
 def generate_cross_conveyor(stage, config, run_name):
-    """Build the short conveyor that carries diverted parcels across.
+    """Build a cross conveyor run from its entry in the config.
 
-    It is rotated 90 degrees, so its surface velocity is set to world space —
-    left in local space it would move parcels along the wrong axis.
+    Runs along X, so each segment is rotated 90 degrees and its surface
+    velocity is set in world space — left in local space it would move
+    parcels along the wrong axis.
     """
-    centreline_y_m = config["conveyor"]["cross"]["centreline_y_m"]
-    start_x_m = config["conveyor"]["cross"]["start_x_m"]
-    end_x_m = config["conveyor"]["cross"]["end_x_m"]
+    centreline_y_m = config["conveyor"][run_name]["centreline_y_m"]
+    start_x_m = config["conveyor"][run_name]["start_x_m"]
+    end_x_m = config["conveyor"][run_name]["end_x_m"]
+    segment_length_m = config["conveyor"]["segment_length_m"]
     belt_width_m = config["conveyor"]["belt_width_m"]
-    y_position = centreline_y_m - belt_width_m / 2
-    x_position = min(start_x_m, end_x_m)
 
-    cross_conveyor_prim = stage.DefinePrim(f"/World/Layout/Conveyor/{run_name}/cross_segment", "Xform")
-    payloads = cross_conveyor_prim.GetPayloads()
-    payloads.AddPayload(assetPath="../Assets/conveyor_modules/conveyor_module_straight.usd")
-    UsdGeom.Xformable(cross_conveyor_prim).AddTranslateOp().Set(Gf.Vec3d(x_position, y_position, 0))
-    UsdGeom.Xformable(cross_conveyor_prim).AddRotateZOp().Set(-90)
-    velocity_api = PhysxSchema.PhysxSurfaceVelocityAPI(cross_conveyor_prim)
-    velocity_api.CreateSurfaceVelocityLocalSpaceAttr().Set(False)
+    y_position = centreline_y_m - belt_width_m / 2
+    first_x = min(start_x_m, end_x_m)
+    segments = max(1, int(abs(end_x_m - start_x_m) / segment_length_m))
+
+    for i in range(segments):
+        x_position = first_x + i * segment_length_m
+        segment_prim = stage.DefinePrim(
+            f"/World/Layout/Conveyor/{run_name}/Segment_{i:02d}", "Xform"
+        )
+        payloads = segment_prim.GetPayloads()
+        payloads.AddPayload(assetPath="../Assets/conveyor_modules/conveyor_module_straight.usd")
+        UsdGeom.Xformable(segment_prim).AddTranslateOp().Set(Gf.Vec3d(x_position, y_position, 0))
+        UsdGeom.Xformable(segment_prim).AddRotateZOp().Set(-90)
+        velocity_api = PhysxSchema.PhysxSurfaceVelocityAPI(segment_prim)
+        velocity_api.CreateSurfaceVelocityLocalSpaceAttr().Set(False)
 
 def diverter_arm(stage, config):
     """Place the diverter arm and the trigger volume that fires it.
@@ -185,6 +193,7 @@ def generate_automation(stage, config):
         generate_conveyor(stage, config, "outbound")
         generate_conveyor(stage, config, "inbound")
         generate_cross_conveyor(stage, config, "cross")
+        generate_cross_conveyor(stage, config, "pickup_cross")
         diverter_arm(stage, config)
 
     automation_level.SetVariantSelection(previous)
