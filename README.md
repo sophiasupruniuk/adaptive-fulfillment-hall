@@ -3,8 +3,11 @@
 A warehouse digital twin built in NVIDIA Omniverse Kit. The scene is a 27 × 42 m
 fulfillment hall with a rack storage area and a conveyor sortation loop. Parcels
 arrive on one conveyor run, a diverter arm pushes selected ones across to a
-second run, and the rest continue to the door end. A control panel sets the
-layout and run parameters, shows live KPIs, and writes results to CSV.
+second run, and the rest continue to the door end. A robotic sorting arm stands
+between the pickup conveyor and the first rack row: it detects parcels queued at
+the end of the pickup run, picks them up, and stacks them on a rack shelf,
+removing them from the parcel flow. A control panel sets the layout and run
+parameters, shows live KPIs, and writes results to CSV.
 
 The layout is generated from a configuration file rather than placed by hand,
 and two switches — aisle width and automation level — change the scene through
@@ -81,6 +84,11 @@ zero.
 then press **Run**. The KPI display updates once a second. The run stops itself
 when the duration is up, or press **Stop** to end it early.
 
+The robot arm starts with the run and stops with it. It watches the end of the
+pickup conveyor and sorts whatever queues there; when nothing is waiting it
+idles. Its current pose and the number of parcels it has racked are shown below
+the KPIs.
+
 **3. Export.** Type a scenario name and press **Export Results**. Two CSV files
 are written and the status line shows where they went.
 
@@ -106,19 +114,20 @@ by copying that file over `05_scenario_overrides.usd`.
 | Aisle Width | Narrow or wide rack spacing. Narrow fits more rows. | Narrow / Wide |
 | Automation Level | Which conveyor equipment is present. ConveyorPlusDiverter is the one that sorts parcels. | Manual / Conveyor / ConveyorPlusDiverter |
 | Rack Rows | How many rack rows to build. Each variant fits as many as its aisle width allows, up to this number. | 4–12 |
-| **Generate Layout** | Builds the racks and equipment from the configuration file. | |
+| **Generate Layout** | Builds the racks, equipment and robot arm from the configuration file. | |
 | Parcel Arrival Rate | How many parcels arrive per hour. | 200–1200 |
 | Conveyor Speed | Belt speed. Parcels travel at roughly half this — see limitations. | 0.5–2.0 m/s |
 | Random Seed | Fixes which parcel sizes arrive in which order. | any whole number |
 | Simulation Duration | How long the run lasts. Spawning stops 90 seconds before the end so parcels in transit can finish. | 60–600 s |
-| **Run** | Applies the run settings and starts the simulation. | |
-| **Stop** | Ends the run and clears parcels from the scene. | |
+| **Run** | Applies the run settings, starts the simulation and the robot arm. | |
+| **Stop** | Ends the run, stops the arm and clears parcels from the scene. | |
 | Scenario Name | Names the exported files and the saved override layer. | any text |
 | **Export Results** | Writes the finished run's results and event log. | |
 
 The KPI panel below the buttons shows parcels spawned, completed, fallen,
 missed, diverted, the diversion success rate, jam count, average transit time
-and total diverter travel.
+and total diverter travel. Below it, the robot line shows the arm's current pose
+and how many parcels it has racked.
 
 ---
 
@@ -155,7 +164,8 @@ source/
       extension.py                starts and stops everything
       ui.py                       the control panel
       simulation.py               runs the simulation, drives the diverter
-      scene_generation.py         builds the layout from the config
+      robot.py                    the sorting arm: poses, gripping, the cycle
+      scene_generation.py         builds the layout and the arm from the config
       measurement.py              KPIs, event log, CSV export
 
 docs/
@@ -165,7 +175,8 @@ docs/
 
 All dimensions live in `warehouse_config.json`. No positions are written into
 the Python source, so changing the hall means editing the configuration file and
-pressing Generate again.
+pressing Generate again. The arm's link lengths, masses, joint drive settings
+and every pose it moves through are in the same file.
 
 ---
 
@@ -181,16 +192,40 @@ too much momentum through the transfer and are lost at the cross conveyor. The
 scenario comparison in `docs/comparison.md` measures this.
 
 **Only medium and large parcels are diverted.** Small parcels slip less and
-arrive ahead of the timing model, so they are not targeted and pass through to
-the door end.
+arrive ahead of the timing model, so they are not targeted. They continue to the
+end of the outbound run and transfer onto a cross conveyor that carries them to
+the robot arm.
+
+**The robot grips with a fixed joint, not by friction.** When the gripper
+reaches a parcel, a `PhysicsFixedJoint` is authored between them at run time and
+collision between the two is filtered out. Contact-based grasping is unstable at
+this scale and would need tuned contact materials and a much smaller time step.
+The trade-off is that the gripper cannot drop a parcel by accident, which a real
+one can.
+
+**The arm moves between fixed poses, not to computed positions.** Each pose is a
+set of joint angles in the configuration file, tuned by hand. There is no
+inverse kinematics, so the arm cannot reach an arbitrary point — it repeats the
+same motion for every parcel. The drop pose eases the shoulder back slightly for
+each parcel in a stack rather than solving for a new height.
+
+**The arm serves one bay.** Its reach covers the pickup conveyor and the lowest
+shelf of the nearest rack bay. Higher shelves and other bays are out of reach.
+
+**Racked parcels are excluded from flow tracking.** Once the robot places a
+parcel it is marked as stored, so the jam detector does not count a stack of
+stationary parcels on a shelf as a jam. They remain in the scene until the run
+ends.
 
 **Repeat runs are not identical.** With a fixed seed the parcel sequence and the
 diverter's decisions repeat exactly, but whether a pushed parcel lands cleanly
 varies by around 3%, because the simulation runs on real frame time rather than
-a fixed step.
+a fixed step. The robot's cycle is driven by timed waits rather than by checking
+whether a pose has been reached, so it is subject to the same variation.
 
-**Storage and sortation do not interact.** Parcels never enter the racks, so
-aisle width changes storage capacity and nothing else.
+**Storage capacity and sortation are only loosely linked.** The robot racks
+parcels into one bay, so aisle width still changes total storage capacity
+without affecting throughput.
 
 **Never more than about twenty parcels are on the line at once.** Parcels are
 removed when they finish, which keeps the frame rate steady. The brief's
