@@ -76,6 +76,7 @@ class ControlPanel:
 
                 # Live KPIs.
                 self._kpi_label = ui.Label("")
+                self._robot_label = ui.Label("Robot: idle")
 
                 # Exporting the finished run.
                 ui.Label("Scenario Name:")
@@ -93,6 +94,8 @@ class ControlPanel:
             self._kpi_timer =0.0
             kpis = self._controller.get_kpis()
             self._kpi_label.text = "\n".join(f"{k}: {round(v, 2)}" for k, v in kpis.items())
+            state, placed = self._controller.get_robot_state()
+            self._robot_label.text = f"Robot: {state} — placed {placed}"
 
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._kpi_subscription = stream.create_subscription_to_pop(on_ui_update, name="KPI Display")

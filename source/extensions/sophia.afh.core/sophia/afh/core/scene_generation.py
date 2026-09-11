@@ -291,6 +291,7 @@ def generate_robot_arm(stage, config, root_path="/World/RobotArm"):
 
     root = UsdGeom.Xform.Define(stage, root_path)
     root.AddTranslateOp().Set(Gf.Vec3d(base_x, base_y, base_z))
+    root.AddRotateZOp().Set(robot["position_yaw_deg"])
     UsdPhysics.ArticulationRootAPI.Apply(root.GetPrim())
     UsdGeom.Scope.Define(stage, f"{root_path}/Joints")
 
@@ -332,8 +333,9 @@ def generate_robot_arm(stage, config, root_path="/World/RobotArm"):
             joint.CreateLocalPos1Attr(Gf.Vec3f(0.0, 0.0, -link["length_m"] / 2.0))
             joint.CreateLocalRot0Attr(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
             joint.CreateLocalRot1Attr(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
-            joint.CreateLowerLimitAttr().Set(-limit_deg)
-            joint.CreateUpperLimitAttr().Set(limit_deg)
+            link_limit = link.get("limit_deg", limit_deg)
+            joint.CreateLowerLimitAttr().Set(-link_limit)
+            joint.CreateUpperLimitAttr().Set(link_limit)
 
             drive = UsdPhysics.DriveAPI.Apply(joint.GetPrim(), "angular")
             drive.CreateTypeAttr("force")

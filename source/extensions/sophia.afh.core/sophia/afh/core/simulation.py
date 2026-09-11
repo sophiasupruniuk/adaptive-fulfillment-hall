@@ -25,10 +25,12 @@ class SimulationController:
         self._event_log = EventLog()
         self._kpis = KPICollector()
         self._fallen = set()
+        self._stored = set()
         self._completed = set()
         self._missed = set()
         self._parcel_state = {}
         self._jammed = set()
+        self._robot = None
         self._parcel_sizes = {}
         self._targeted_sizes = ("medium", "large")
         self._targeted = set()
@@ -100,6 +102,7 @@ class SimulationController:
         self._completed.clear()
         self._missed.clear()
         self._jammed.clear()
+        self._stored.clear()
         self._fallen.clear()
         self._parcel_sizes.clear()
         self._parcel_state.clear()
@@ -128,9 +131,13 @@ class SimulationController:
         self._response_delay = max(0.0, trigger_offset_m / (speed * ratio) - arm_travel_time_s)
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._subscription = stream.create_subscription_to_pop(self._on_update, name="Parcel Spawner")
+        if self._robot is not None:
+            self._robot.start()
 
     def stop(self):
-        """End the run and remove any parcels still in the scene."""
+        """End the run, stop the arm, and remove any parcels still in the scene."""
+        if self._robot is not None:
+            self._robot.stop()
         self._subscription = None
         stage = omni.usd.get_context().get_stage()
         if stage is None:
@@ -139,9 +146,24 @@ class SimulationController:
         if parcels.IsValid():
             stage.RemovePrim("/World/Parcel")
 
+    def mark_stored(self, parcel_path):
+        """Exclude a parcel from flow tracking once the robot has racked it."""
+        self._stored.add(parcel_path)
+        self._parcel_state.pop(parcel_path, None)
+
     def get_kpis(self):
         """Return the current KPI values."""
         return self._kpis.get_kpis()
+
+    def set_robot(self, robot):
+        """Give the simulation the arm to start and stop with each run."""
+        self._robot = robot
+
+    def get_robot_state(self):
+        """The arm's current pose and how many parcels it has racked."""
+        if self._robot is None:
+            return "none", 0
+        return self._robot.get_state()
 
     def export(self, scenario_name):
         """Write the run's parameters, KPIs and events to CSV."""
@@ -259,6 +281,8 @@ class SimulationController:
         to_remove = []
 
         for parcel in parcel_children:
+            if parcel.GetPath() in self._stored:
+                continue
             parcel_transform = parcel.GetAttribute("xformOp:translate").Get()
             if parcel_transform[2] < 0.6 and parcel.GetPath() not in self._fallen:
                 self._fallen.add(parcel.GetPath())
