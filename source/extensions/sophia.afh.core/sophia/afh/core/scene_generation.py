@@ -271,16 +271,16 @@ def generate_end_stop(stage, config, run_name):
     UsdPhysics.CollisionAPI.Apply(stop.GetPrim())
 
 def generate_robot_arm(stage, config, root_path="/World/RobotArm"):
-    """Build the sorting arm as a PhysX articulation of jointed rigid bodies.
+    """Build the sorting arm as a PhysX articulation on a linear rail.
 
+    The arm rides a prismatic joint along the rail, so one taught arm pose
+    serves several rack bays: the rail positions the carriage, the arm reaches.
     Links are siblings, not nested, because PhysX cannot simulate a rigid body
     inside another; the chain is expressed by joints instead. Each link is an
-    Xform carrying the body, with a Geom child carrying the collider.
-
-    Returns (bodies, joints): two dicts of name -> prim path.
-    """
+    Xform carrying the body, with a Geom child carrying the collider."""
     robot = config["robot"]
     links = robot["links"]
+    rail = robot["rail"]
     limit_deg = robot["joint_limit_deg"]
     base_x = robot["position_x_m"]
     base_y = robot["position_y_m"]
@@ -292,13 +292,21 @@ def generate_robot_arm(stage, config, root_path="/World/RobotArm"):
     root = UsdGeom.Xform.Define(stage, root_path)
     root.AddTranslateOp().Set(Gf.Vec3d(base_x, base_y, base_z))
     root.AddRotateZOp().Set(robot["position_yaw_deg"])
-    UsdPhysics.ArticulationRootAPI.Apply(root.GetPrim())
     UsdGeom.Scope.Define(stage, f"{root_path}/Joints")
+
+    # Visual only — no collider. The prismatic joint below constrains the
+    # carriage; a collider here would only give the solver something to fight.
+    rail_prim = UsdGeom.Cube.Define(stage, f"{root_path}/Rail")
+    rail_prim.GetSizeAttr().Set(1.0)
+    rail_prim.AddTranslateOp().Set(Gf.Vec3d(
+        rail["length_m"] / 2.0, 0.0, rail["height_m"] / 2.0))
+    rail_prim.AddScaleOp().Set(Gf.Vec3f(
+        rail["length_m"], rail["width_m"], rail["height_m"]))
 
     bodies = {}
     joints = {}
     previous = None
-    z_offset = 0.0
+    z_offset = rail["height_m"]
 
     for link in links:
         body_path = f"{root_path}/{link['name']}"
@@ -321,8 +329,28 @@ def generate_robot_arm(stage, config, root_path="/World/RobotArm"):
         joint_path = f"{root_path}/Joints/{link['joint']}"
 
         if previous is None:
-            weld = UsdPhysics.FixedJoint.Define(stage, joint_path)
-            weld.CreateBody1Rel().SetTargets([body_path])
+            # The carriage slides along the rail. body0 is left empty, meaning
+            # the world, so localPos0 is a world-space point: where travel
+            # starts. Prismatic limits are in metres, not degrees.
+            UsdPhysics.ArticulationRootAPI.Apply(body.GetPrim())
+            joints[link["joint"]] = joint_path
+            slide = UsdPhysics.PrismaticJoint.Define(stage, joint_path)
+            slide.CreateBody1Rel().SetTargets([body_path])
+            slide.CreateAxisAttr("X")
+            slide.CreateLocalPos0Attr(Gf.Vec3f(
+                base_x, base_y, base_z + z_offset + link["length_m"] / 2.0))
+            slide.CreateLocalPos1Attr(Gf.Vec3f(0.0, 0.0, 0.0))
+            slide.CreateLocalRot0Attr(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+            slide.CreateLocalRot1Attr(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+            slide.CreateLowerLimitAttr().Set(rail["travel_min_m"])
+            slide.CreateUpperLimitAttr().Set(rail["travel_max_m"])
+
+            drive = UsdPhysics.DriveAPI.Apply(slide.GetPrim(), "linear")
+            drive.CreateTypeAttr("force")
+            drive.CreateStiffnessAttr().Set(rail["stiffness"])
+            drive.CreateDampingAttr().Set(rail["damping"])
+            drive.CreateMaxForceAttr().Set(rail["max_force"])
+            drive.CreateTargetPositionAttr(0.0)
         else:
             joints[link["joint"]] = joint_path
             joint = UsdPhysics.RevoluteJoint.Define(stage, joint_path)

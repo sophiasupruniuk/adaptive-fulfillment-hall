@@ -13,12 +13,15 @@ class RobotController:
     """
 
     GRIP_JOINT_PATH = "/World/RobotArm/Joints/GripAttachment"
+    LINEAR_JOINT = "BaseSlide"
 
     def __init__(self, config, root_path="/World/RobotArm"):
         self._config = config
         self._root_path = root_path
+        self._used_slots = set()
         self._poses = config["robot"]["poses"]
         self._times = config["robot"]["move_time_s"]
+        self._storage = config["robot"]["storage"]
         self._gripper_path = f"{root_path}/Gripper"
         self._placed = 0
         self._task = None
@@ -35,7 +38,8 @@ class RobotController:
         if not prim.IsValid():
             print(f"[robot] no joint prim named {joint_name}")
             return None
-        return UsdPhysics.DriveAPI.Get(prim, "angular")
+        instance = "linear" if joint_name == self.LINEAR_JOINT else "angular"
+        return UsdPhysics.DriveAPI.Get(prim, instance)
 
     def go_to(self, pose_name, shoulder_offset=0.0):
         """Command every joint to the named pose's angles."""
@@ -50,6 +54,12 @@ class RobotController:
                 angle += shoulder_offset
             drive.GetTargetPositionAttr().Set(float(angle))
         self._state = pose_name
+
+    def set_rail(self, position_m):
+        """Drive the carriage to a position along the rail, in metres."""
+        drive = self._drive(self.LINEAR_JOINT)
+        if drive is not None:
+            drive.GetTargetPositionAttr().Set(float(position_m))
 
     def world_position(self, prim):
         xf = UsdGeom.Xformable(prim)
@@ -109,67 +119,126 @@ class RobotController:
         if stage.GetPrimAtPath(self.GRIP_JOINT_PATH):
             stage.RemovePrim(self.GRIP_JOINT_PATH)
 
+    def _slot_rail(self, index):
+        """The rail position that puts the carriage in front of slot `index`."""
+        s = self._storage
+        bay = index // s["slots_per_bay"]
+        within = index % s["slots_per_bay"]
+        bay_x = s["first_bay_x_m"] + bay * s["bay_width_m"]
+        slot_x = bay_x + s["first_slot_offset_m"] + within * s["slot_spacing_m"]
+        return slot_x - s["rail_origin_x_m"] + s["rail_offset_m"]
+
+    def _slot_centre(self, index):
+        """Where a parcel placed in slot `index` comes to rest, in world space."""
+        s = self._storage
+        bay = index // s["slots_per_bay"]
+        within = index % s["slots_per_bay"]
+        bay_x = s["first_bay_x_m"] + bay * s["bay_width_m"]
+        x = bay_x + s["first_slot_offset_m"] + within * s["slot_spacing_m"]
+        return Gf.Vec3d(x, s["shelf_y_m"], s["shelf_z_m"])
+
+    def next_free_slot(self):
+        """The lowest slot index the robot has not yet filled.
+
+        Tracked on the controller rather than read from the scene: during
+        simulation PhysX owns parcel positions and the authored transforms lag
+        behind, so a just-placed parcel is not yet visible at its slot.
+        Returns None when every slot is used.
+        """
+        total = self._storage["bays"] * self._storage["slots_per_bay"]
+        for index in range(total):
+            if index not in self._used_slots:
+                return index
+        return None
+
     def set_simulation(self, simulation):
         self._simulation = simulation
 
     async def _sort_one(self):
-        """One full cycle: pick the queued parcel, stack it, return home.
+        """One full cycle: pick the queued parcel, rack it in the next free
+        slot, return to the pickup point.
 
+        The slot is chosen by reading the scene rather than counting
+        placements, so a parcel knocked off a shelf frees its slot again.
         Returns True if a parcel was placed, False if there was nothing to do.
         """
         parcel = self.parcel_at_pickup()
         if parcel is None:
             return False
 
-        parcel_path = parcel.GetPath()
-        print(f"[robot] picking {parcel_path}")
+        slot = self.next_free_slot()
+        if slot is None:
+            print("[robot] shelf is full")
+            return False
 
-        self.go_to("reach")
+        parcel_path = parcel.GetPath()
+        print(f"[robot] picking {parcel_path} for slot {slot}")
+
+        self.go_to("pick")
         await asyncio.sleep(self._times["reach"])
 
         if not self.grip(parcel):
+            print("[robot] grip failed")
             return False
+        print("[robot] gripped")
         await asyncio.sleep(self._times["grip"])
 
-        self.go_to("lifted")
+        self.go_to("home")
+        print("[robot] home")
         await asyncio.sleep(self._times["lift"])
+
+        self.set_rail(self._slot_rail(slot))
+        print(f"[robot] rail -> {self._slot_rail(slot)}")
+        await asyncio.sleep(self._times["rail"])
 
         self.go_to("transit")
         await asyncio.sleep(self._times["transit"])
 
-        step = self._config["robot"]["drop_shoulder_step_deg"]
-        capacity = self._config["robot"]["drop_capacity"]
-        self.go_to("drop", shoulder_offset=step * (self._placed % capacity))
+        self.go_to("drop")
         await asyncio.sleep(self._times["drop"])
 
         self.release()
         if self._simulation is not None:
             self._simulation.mark_stored(parcel_path)
+        self._used_slots.add(slot)
         self._placed += 1
         await asyncio.sleep(self._times["release"])
 
         self.go_to("transit")
         await asyncio.sleep(self._times["transit"])
+
         self.go_to("home")
         await asyncio.sleep(self._times["home"])
+
+        self.set_rail(self._config["robot"]["pickup_rail_m"])
+        await asyncio.sleep(self._times["rail"])
         return True
 
     async def _run(self):
         """Keep cycling: sort whatever arrives, wait when the run is empty."""
-        self.go_to("home")
-        await asyncio.sleep(2.0)
-        while True:
-            placed = await self._sort_one()
-            if not placed:
-                self._state = "waiting"
-                await asyncio.sleep(1.0)
+        print("[robot] _run entered")
+        try:
+            self.set_rail(self._config["robot"]["pickup_rail_m"])
+            self.go_to("home")
+            await asyncio.sleep(self._times["home"])
+            while True:
+                placed = await self._sort_one()
+                if not placed:
+                    self._state = "waiting"
+                    await asyncio.sleep(1.0)
+        except Exception as e:
+            print(f"[robot] _run failed: {type(e).__name__}: {e}")
+            raise
+
 
     def start(self):
         """Begin sorting, unless a cycle is already running."""
+        print("[robot] start() called")
         if self._task is not None and not self._task.done():
             print("[robot] already running")
             return
         self._task = asyncio.ensure_future(self._run())
+        print("[robot] task created")
 
     def stop(self):
         """Cancel the cycle and drop anything held."""
@@ -177,6 +246,7 @@ class RobotController:
             self._task.cancel()
             self._task = None
         self.release()
+        self._used_slots.clear()
         self._state = "idle"
 
     def get_state(self):
