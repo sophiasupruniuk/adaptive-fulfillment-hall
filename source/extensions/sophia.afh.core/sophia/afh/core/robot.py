@@ -18,7 +18,6 @@ class RobotController:
     def __init__(self, config, root_path="/World/RobotArm"):
         self._config = config
         self._root_path = root_path
-        self._used_slots = set()
         self._poses = config["robot"]["poses"]
         self._times = config["robot"]["move_time_s"]
         self._storage = config["robot"]["storage"]
@@ -138,16 +137,27 @@ class RobotController:
         return Gf.Vec3d(x, s["shelf_y_m"], s["shelf_z_m"])
 
     def next_free_slot(self):
-        """The lowest slot index the robot has not yet filled.
+        """The lowest slot with no parcel resting in it.
 
-        Tracked on the controller rather than read from the scene: during
-        simulation PhysX owns parcel positions and the authored transforms lag
-        behind, so a just-placed parcel is not yet visible at its slot.
-        Returns None when every slot is used.
+        Occupancy is read from the scene, so a slot emptied by a picker
+        becomes available again without the robot tracking it. Returns None
+        when every slot is taken.
         """
+        stage = self._stage()
+        radius = self._storage["occupied_radius_m"]
         total = self._storage["bays"] * self._storage["slots_per_bay"]
+
+        positions = []
+        parcels = stage.GetPrimAtPath("/World/Parcel")
+        if parcels.IsValid():
+            for p in parcels.GetChildren():
+                attr = p.GetAttribute("xformOp:translate")
+                if attr.IsValid():
+                    positions.append(attr.Get())
+
         for index in range(total):
-            if index not in self._used_slots:
+            centre = self._slot_centre(index)
+            if all((pos - centre).GetLength() > radius for pos in positions):
                 return index
         return None
 
@@ -158,9 +168,8 @@ class RobotController:
         """One full cycle: pick the queued parcel, rack it in the next free
         slot, return to the pickup point.
 
-        The slot is chosen by reading the scene rather than counting
-        placements, so a parcel knocked off a shelf frees its slot again.
-        Returns True if a parcel was placed, False if there was nothing to do.
+        The slot is the lowest one with nothing resting in it, read from the
+        scene, so a slot emptied by a picker becomes available again.
         """
         parcel = self.parcel_at_pickup()
         if parcel is None:
@@ -198,14 +207,13 @@ class RobotController:
         await asyncio.sleep(self._times["drop"])
 
         self.release()
-        if self._simulation is not None:
-            self._simulation.mark_stored(parcel_path)
-        self._used_slots.add(slot)
         self._placed += 1
         await asyncio.sleep(self._times["release"])
 
         self.go_to("transit")
         await asyncio.sleep(self._times["transit"])
+        if self._simulation is not None:
+            self._simulation.mark_stored(parcel_path)
 
         self.go_to("home")
         await asyncio.sleep(self._times["home"])
@@ -246,7 +254,6 @@ class RobotController:
             self._task.cancel()
             self._task = None
         self.release()
-        self._used_slots.clear()
         self._state = "idle"
 
     def get_state(self):

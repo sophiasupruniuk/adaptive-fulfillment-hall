@@ -17,6 +17,7 @@ class SimulationController:
         """Set up the counters and state a run needs, before any run starts."""
         self._time_since_spawn = 0.0
         self._spawn_rate_per_hour = 600
+        self._collect_timer = 0.0
         self._subscription = None
         self._parcel_count = 0
         self._trigger_path = "/World/Layout/Conveyor/Diverter_Trigger/mesh_0"
@@ -116,6 +117,8 @@ class SimulationController:
         self._inbound_end = config["conveyor"]["inbound"]["start_y_m"]
         self._outbound_end = config["conveyor"]["outbound"]["end_y_m"]
         self._wind_down = config["spawn"]["wind_down_s"]
+        self._collect_interval = config["robot"]["storage"]["collect_interval_s"]
+        self._collect_timer = 0.0
         self._spawn_point = Gf.Vec3d(
             self._outbound_x - config["spawn"]["start_offset_x"],
             config["conveyor"]["outbound"]["start_y_m"] - config["spawn"]["start_offset_y"],
@@ -346,6 +349,18 @@ class SimulationController:
                     self._jammed.add(a)
                     self._event_log.record("jam", self._run_time, self._parcel_state[a]["last_pos"])
                     self._kpis.record_jammed()
+
+        # A picker collects a stored parcel from time to time, so shelf slots
+        # free up again and the robot has somewhere to put new arrivals.
+        # sorted() keeps the choice deterministic for a given seed.
+        self._collect_timer += dt
+        if self._collect_timer >= self._collect_interval and self._stored:
+            path = random.choice(sorted(self._stored))
+            print(f"[sim] collected {path}")
+            stage.RemovePrim(path)
+            self._stored.discard(path)
+            self._parcel_sizes.pop(path, None)
+            self._collect_timer = 0.0
 
     def _apply_conveyor_speed(self, speed):
         """Set every conveyor segment's surface velocity from the config.

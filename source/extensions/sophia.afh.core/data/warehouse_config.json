@@ -126,11 +126,12 @@
       "first_bay_x_m": 12.5,
       "first_slot_offset_m": 0.35,
       "slot_spacing_m": 0.5,
-      "shelf_y_m": 2.10,
+      "shelf_y_m": 2.47,
       "shelf_z_m": 1.30,
-      "occupied_radius_m": 0.35,
+      "occupied_radius_m": 0.20,
       "rail_origin_x_m": 9.5,
-      "rail_offset_m": 0.0
+      "rail_offset_m": 0.0,
+      "collect_interval_s": 60.0
       },
 
     "rail": {
@@ -177,7 +178,7 @@
     },
 
     "move_time_s": {
-      "rail": 4.0,
+      "rail": 2.0,
       "reach": 0.8,
       "grip": 0.1,
       "lift": 1,
