@@ -20,7 +20,7 @@ class SimulationController:
         self._collect_timer = 0.0
         self._subscription = None
         self._parcel_count = 0
-        self._trigger_path = "/World/Layout/Conveyor/Diverter_Trigger/mesh_0"
+        self._trigger_path = "/World/Layout/Conveyor/Diverter_Trigger/beam"
         self._joint_path = "/World/Layout/Conveyor/Diverter/divider_arm/PusherJoint"
         self._run_time = 0.0
         self._event_log = EventLog()
@@ -35,6 +35,7 @@ class SimulationController:
         self._parcel_sizes = {}
         self._targeted_sizes = ("medium", "large")
         self._targeted = set()
+        self._approaching = set()
         self._arm_state = "home"
         self._arm_timer = 0.0
         self._parcel_assets = ["../Assets/parcels/parcel_small.usd",
@@ -108,6 +109,7 @@ class SimulationController:
         self._parcel_sizes.clear()
         self._parcel_state.clear()
         self._targeted.clear()
+        self._approaching.clear()
         self._spawn_rate_per_hour = spawn_rate_per_hour
         self._outbound_x = config["conveyor"]["outbound"]["centreline_x_m"]
         self._inbound_x = config["conveyor"]["inbound"]["centreline_x_m"]
@@ -130,12 +132,30 @@ class SimulationController:
         self._dwell_time = config["diverter"]["dwell_time_s"]
         self._retracted_position = config["diverter"]["retracted_position_m"]
         self._extended_position = config["diverter"]["extended_position_m"]
-        ratio = config["conveyor"]["parcel_speed_ratio"]
-        self._response_delay = max(0.0, trigger_offset_m / (speed * ratio) - arm_travel_time_s)
+        self._diverter_y = config["diverter"]["position_y_m"]
+        self._fire_lead_m = config["diverter"]["fire_lead_m"]
+        self._speed = speed
+        self._trigger_offset_m = trigger_offset_m
+        self._arm_travel_time_s = arm_travel_time_s
+        self._speed_ratios = {
+            "small": config["conveyor"]["parcel_speed_ratio_small"],
+            "medium": config["conveyor"]["parcel_speed_ratio_medium"],
+            "large": config["conveyor"]["parcel_speed_ratio_large"],
+        }
+        self._response_delay = self._delay_for("medium")
         stream = omni.kit.app.get_app().get_update_event_stream()
         self._subscription = stream.create_subscription_to_pop(self._on_update, name="Parcel Spawner")
         if self._robot is not None:
             self._robot.start()
+
+    def _delay_for(self, size):
+        """How long to wait after detecting a parcel of this size.
+
+        Heavier parcels slip more on the belt, so they arrive later than a
+        single ratio predicts. The ratios were measured per size.
+        """
+        ratio = self._speed_ratios.get(size, self._speed_ratios["medium"])
+        return max(0.0, self._trigger_offset_m / (self._speed * ratio) - self._arm_travel_time_s)
 
     def stop(self):
         """End the run, stop the arm, and remove any parcels still in the scene."""
@@ -244,28 +264,34 @@ class SimulationController:
 
         if drive:
             if self._arm_state == "home":
-                targeted = False
+                # Note which targeted parcels are on their way. The arm fires
+                # when one actually reaches it, not on a timer, because parcel
+                # transit varies with how busy the physics scene is.
                 for t in parcels:
                     parcel_path = t.GetParentPath()
-                    if self._parcel_sizes.get(parcel_path) in self._targeted_sizes:
-                        targeted = True
+                    size = self._parcel_sizes.get(parcel_path)
+                    if size in self._targeted_sizes and parcel_path not in self._targeted:
                         self._targeted.add(parcel_path)
+                        self._approaching.add(parcel_path)
                         self._kpis.record_targeted()
-                        break
-                if targeted:
-                    self._arm_state = "waiting"
-                    self._arm_timer = 0.0
 
-            elif self._arm_state == "waiting":
-                self._arm_timer += dt
-                if self._arm_timer >= self._response_delay:
-                    drive.CreateTargetPositionAttr().Set(self._extended_position)
-                    self._arm_state = "extended"
-                    self._arm_timer = 0.0
-                    self._kpis.record_diverted()
-                    self._kpis.record_diverter_travel(
-                        abs(self._extended_position - self._retracted_position)
-                    )
+                fire_at = self._diverter_y + self._fire_lead_m
+                for path in list(self._approaching):
+                    prim = stage.GetPrimAtPath(path)
+                    if not prim.IsValid():
+                        self._approaching.discard(path)
+                        continue
+                    attr = prim.GetAttribute("xformOp:translate")
+                    if attr and attr.Get()[1] <= fire_at:
+                        drive.CreateTargetPositionAttr().Set(self._extended_position)
+                        self._arm_state = "extended"
+                        self._arm_timer = 0.0
+                        self._kpis.record_diverted()
+                        self._kpis.record_diverter_travel(
+                            abs(self._extended_position - self._retracted_position)
+                        )
+                        self._approaching.discard(path)
+                        break
 
             elif self._arm_state == "extended":
                 self._arm_timer += dt
@@ -330,6 +356,7 @@ class SimulationController:
             self._fallen.discard(path)
             self._jammed.discard(path)
             self._targeted.discard(path)
+            self._approaching.discard(path)
             self._parcel_sizes.pop(path, None)
 
         stalled = [path for path, s in self._parcel_state.items() if s["still_time"] > 3.0]
